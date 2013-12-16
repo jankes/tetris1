@@ -1,0 +1,4 @@
+#ignore everything besides rust files and the .gitignore file itself
+*
+!.gitignore
+!*.rs
