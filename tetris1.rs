@@ -1,104 +1,114 @@
-use std::mem::size_of;
-use std::libc::{c_int, c_short, c_long};
+
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // terminal control
 
-struct termios {
-  c_iflag: c_int,     // input flags
-  c_oflag: c_int,     // output flags
-  c_cflag: c_int,     // control flags
-  c_lflag: c_int,     // local flags
-  c_cc: [u8, ..32],   // control characters
+mod terminal_control {
+  use std::libc::c_int;
   
-  // on my machine's C compiler and environment:
-  // -- sizeof(int) == 4
-  // -- sizeof(struct termios) == 60
-  // In this struct's definition so far, 16 bytes of flags + 32 control char bytes equals 48
-  // Adding in the extra 12 bytes to match C struct's size
-  padding: [u8, ..12]
+  struct termios {
+    c_iflag: c_int,     // input flags
+    c_oflag: c_int,     // output flags
+    c_cflag: c_int,     // control flags
+    c_lflag: c_int,     // local flags
+    c_cc: [u8, ..32],   // control characters
+    
+    // on my machine's C compiler and environment:
+    // -- sizeof(int) == 4
+    // -- sizeof(struct termios) == 60
+    // In this struct's definition so far, 16 bytes of flags + 32 control char bytes equals 48
+    // Adding in the extra 12 bytes to match C struct's size
+    padding: [u8, ..12]
+  }
+
+  extern {
+    fn tcgetattr(filedes: c_int, termptr: *mut termios) -> c_int;
+    fn tcsetattr(filedes: c_int, opt: c_int, termptr: *termios) -> c_int;
+    fn cfmakeraw(termptr: *mut termios);
+  }
+
+  fn get_terminal_attr() -> (termios, c_int) {
+    unsafe {
+      let mut ios = termios {
+	c_iflag: 0,
+	c_oflag: 0,
+	c_cflag: 0,
+	c_lflag: 0,
+	c_cc: [0, ..32],
+	padding: [0, ..12]
+      };
+      // first parameter is file descriptor number, 0 ==> standard input
+      let err = tcgetattr(0, &mut ios);
+      return (ios, err);
+    }
+  }
+
+  fn make_raw(ios: &termios) -> termios {
+    unsafe {
+      let mut ios = *ios;
+      cfmakeraw(&mut ios);
+      return ios;
+    }
+  }
+
+  fn set_terminal_attr(ios: &termios) -> c_int {
+    unsafe {
+      // first paramter is file descriptor number, 0 ==> standard input
+      // second paramter is when to set, 0 ==> now
+      return tcsetattr(0, 0, ios);
+    }
+  }
+
+  pub struct TerminalRestorer {
+    ios: termios
+  }
+
+  impl TerminalRestorer {
+    pub fn restore(&self) {
+      set_terminal_attr(&self.ios);
+    }
+  }
+
+  pub fn set_terminal_raw_mode() -> TerminalRestorer {
+    let (original_ios, err) = get_terminal_attr();
+    if err != 0 {
+      fail!("failed to get terminal settings");
+    }
+    
+    let raw_ios = make_raw(&original_ios);
+    let err = set_terminal_attr(&raw_ios);
+    if err != 0 {
+      fail!("failed to switch terminal to raw mode");
+    }
+    
+    TerminalRestorer {
+      ios: original_ios
+    }
+  }
+  
+  pub fn print_terminal_settings() {
+    let (ios, _) = get_terminal_attr();
+    println!("iflag = {}", ios.c_iflag);
+    println!("oflag = {}", ios.c_oflag);
+    println!("cflag = {}", ios.c_cflag);
+    println!("lflag = {}", ios.c_lflag);
+    println!("control characters:");
+    for c in ios.c_cc.iter() {
+      println!("{}", *c);
+    }
+    println("unknown:");
+    for a in ios.padding.iter() {
+      println!("{}", *a);
+    }  
+  }
 }
 
-extern {
-  fn tcgetattr(filedes: c_int, termptr: *termios) -> c_int;
-  fn tcsetattr(filedes: c_int, opt: c_int, termptr: *termios) -> c_int;
-}
-
-fn get_terminal_attr() -> (termios, c_int) {
-  unsafe {
-    let ios = termios {
-      c_iflag: 0,
-      c_oflag: 0,
-      c_cflag: 0,
-      c_lflag: 0,
-      c_cc: [0, ..32],
-      padding: [0, ..12]
-    };
-    // first parameter is file descriptor number, 0 ==> standard input
-    let err = tcgetattr(0, &ios);
-    return (ios, err);
-  }
-}
-
-fn set_terminal_attr(ios: &termios) -> c_int {
-  unsafe {
-    // first paramter is file descriptor number, 0 ==> standard input
-    // second paramter is when to set, 0 ==> now
-    return tcsetattr(0, 0, ios);
-  }
-}
-
-fn disable_canonical_input() {
-  let ICANON = 2;
-  let ECHO = 8;
-  
-  // get a copy of the current settings to make changes on
-  let (mut ios, err) = get_terminal_attr();
-  if err != 0 {
-    fail!("failed to get terminal settings");
-  }
-  
-  // turn off canonical mode and echo
-  ios.c_cflag = ios.c_cflag & (!ICANON);
-  ios.c_cflag = ios.c_cflag & (!ECHO);
-  let err = set_terminal_attr(&ios);
-  if err != 0 {
-    fail!("failed to set terminal settings");
-  }
-  
-  // make sure the settings appiled as expected
-  let (updated_ios, err) = get_terminal_attr();
-  if (updated_ios.c_cflag & ICANON != 0) {
-    fail!("expected canonical mode false, but got true");
-  }
-  if (updated_ios.c_cflag & ECHO != 0) {
-    fail!("expected echo false, but got true");
-  }
-}
-
-fn enable_canonical_input() {
-  let ICANON = 2;
-  let ECHO = 8;
-  
-  let (ios, err) = get_terminal_attr();
-  if err != 0 {
-    fail!("failed to get terminal settings");
-  }
-  
-  // turn both canonical mode and echo on
-  //ios.c_cflag = ios.c_cflag & ICANON;
-  //ios.c_cflag = ios.c_cflag & ECHO;
-  let err = set_terminal_attr(&ios);
-  if err != 0 {
-    fail!("failed to set terminal settings");
-  }
-}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // 
-
+/*
 enum PollResult {
   PollReady,
   PollTimeout,
@@ -132,6 +142,7 @@ fn poll_stdin(timeoutMillis: c_int) -> PollResult {
     }
   }
 }
+*/
 
 //fn 
 
@@ -211,8 +222,9 @@ fn main() {
     PollTimeout => println("timeout"),
     PollError   => println("error")
   }
-  */ 
+  */
   
+  /*
   fn print_terminal_settings() {
     let (ios, _) = get_terminal_attr();
     println!("iflag = {}", ios.c_iflag);
@@ -228,8 +240,13 @@ fn main() {
       println!("{}", *a);
     }  
   }
+  */
 
+  use terminal_control::{set_terminal_raw_mode, print_terminal_settings};
+  
   print_terminal_settings();
-  enable_canonical_input();
+  let restorer = set_terminal_raw_mode();
+  print_terminal_settings();
+  restorer.restore();
   print_terminal_settings();
 }
