@@ -87,6 +87,8 @@ mod terminal_control {
     }
   }
   
+  // debugging/testing purposes
+  /*
   pub fn print_terminal_settings() {
     let (ios, _) = get_terminal_attr();
     println!("iflag = {}", ios.c_iflag);
@@ -102,47 +104,63 @@ mod terminal_control {
       println!("{}", *a);
     }  
   }
+  */
 }
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // 
-/*
-enum PollResult {
-  PollReady,
-  PollTimeout,
-  PollError
-}
+mod input_reader {
+  use std::libc::{c_int, c_short, c_long};
+  
+  pub enum PollResult {
+    PollReady,
+    PollTimeout,
+  }
 
-struct pollfd {
-  fd: c_int,
-  events: c_short,
-  revents: c_short
-}
+  struct pollfd {
+    fd: c_int,
+    events: c_short,
+    revents: c_short
+  }
 
-extern {
-  fn poll(fds: *pollfd, nfds: c_long, timeout: c_int) -> c_int;
-}
+  extern {
+    fn poll(fds: *pollfd, nfds: c_long, timeout: c_int) -> c_int;
+    fn read(fd: c_int, buf: *mut u8, nbyte: u64) -> i64;
+  }
 
-fn poll_stdin(timeoutMillis: c_int) -> PollResult {
-  unsafe {
-    let pfd = pollfd {
-      fd: 0,     // standard input file descriptor number
-      events: 1, // POLLIN event
-      revents: 0 // kernel modifies this field when calling poll()
-    };
-    let pr = poll(&pfd, 1, timeoutMillis);
-    if pr > 0 {
-      return PollReady
-    } else if pr == 0 {
-      return PollTimeout;
-    } else {
-      return PollError;
+  pub fn poll_stdin(timeoutMillis: c_int) -> PollResult {
+    unsafe {
+      let pfd = pollfd {
+	fd: 0,     // standard input file descriptor number
+	events: 1, // POLLIN event
+	revents: 0 // kernel modifies this field when calling poll()
+      };
+      let pr = poll(&pfd, 1, timeoutMillis);
+      if pr > 0 {
+	return PollReady
+      } else if pr == 0 {
+	return PollTimeout;
+      } else {
+	fail!("error polling standard input");
+      }
+    }
+  }
+  
+  pub fn read_stdin() -> u8 {
+    unsafe {
+      let mut c = 0u8;
+      
+      // first parameter is file descriptor number, 0 ==> standard input
+      let numRead = read(0, &mut c, 1);
+      if numRead < 0 {
+	fail!("error reading standard input");
+      }
+      return c;
     }
   }
 }
-*/
 
 //fn 
 
@@ -223,30 +241,22 @@ fn main() {
     PollError   => println("error")
   }
   */
-  
-  /*
-  fn print_terminal_settings() {
-    let (ios, _) = get_terminal_attr();
-    println!("iflag = {}", ios.c_iflag);
-    println!("oflag = {}", ios.c_oflag);
-    println!("cflag = {}", ios.c_cflag);
-    println!("lflag = {}", ios.c_lflag);
-    println!("control characters:");
-    for c in ios.c_cc.iter() {
-      println!("{}", *c);
-    }
-    println("unknown:");
-    for a in ios.padding.iter() {
-      println!("{}", *a);
-    }  
-  }
-  */
 
-  use terminal_control::{set_terminal_raw_mode, print_terminal_settings};
+  /*
+  use input_reader::{poll_stdin, PollReady, PollTimeout, read_stdin};
   
-  print_terminal_settings();
-  let restorer = set_terminal_raw_mode();
-  print_terminal_settings();
+  let restorer = terminal_control::set_terminal_raw_mode();
+  
+  match poll_stdin(5000) {
+    PollReady => {
+      let c = read_stdin();
+      println!("read {}", c);
+    }
+    PollTimeout => println("timeout!")
+  }
+  
   restorer.restore();
-  print_terminal_settings();
+  */
+  
+  
 }
