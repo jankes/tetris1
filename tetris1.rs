@@ -1,4 +1,9 @@
 
+//
+// use statement here for now while testing input reading stuff ...
+use std::libc::{c_int, c_short, c_long};
+//
+
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -111,14 +116,18 @@ mod terminal_control {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // 
-mod input_reader {
-  use std::libc::{c_int, c_short, c_long};
+//mod input_reader {
+  //use std::libc::{c_int, c_short, c_long};
   
   pub enum PollResult {
     PollReady,
     PollTimeout,
   }
-
+  
+  pub enum ReadResult {
+    Up, Down, Right, Left, Other
+  }
+  
   struct pollfd {
     fd: c_int,
     events: c_short,
@@ -148,19 +157,43 @@ mod input_reader {
     }
   }
   
-  pub fn read_stdin() -> u8 {
+  pub fn read_stdin() -> ReadResult {
     unsafe {
-      let mut c = 0u8;
+      // reading bytes into storage for an unsigned integer for easy comparison of
+      // input byte sequence (we only care about arrow keys) to integer constants
+      //
+      // at least for Konsole, pressing Up, Down, Right, or Left on the keyboard sends 3 bytes:
+      // 0x1B (escape)
+      // 0x5B [
+      // 0x41, 0x42, 0x43, or 0x44 (A, B, C, or D)
+      //
+      // note the case where we read less than all 3 bytes from the single read call is not handled, and considered "Other"
+      //
+      // for example, 0x1B 0x5B, 0x44 is sent when Left is pressed
+      // 
+      // the integer constants to compare these sequences to are "backwards" due to Intel's least significant byte order
+      // example above is least significant byte order representation of 0x445B1B
+      
+      let mut buf = 0u64;
+      let bufAddr: *mut u8 = std::cast::transmute(&mut buf);
       
       // first parameter is file descriptor number, 0 ==> standard input
-      let numRead = read(0, &mut c, 1);
+      let numRead = read(0, bufAddr, 8);
       if numRead < 0 {
 	fail!("error reading standard input");
       }
-      return c;
+      match buf {
+	0x415B1B => Up,
+	0x425B1B => Down,
+	0x435B1B => Right,
+	0x445B1B => Left,
+	_        => Other
+      }
     }
   }
-}
+  
+  
+//}
 
 //fn 
 
@@ -214,6 +247,7 @@ fn init() {
 */
 
 fn main() {
+  /*
   //println!("size_of Block = {}", size_of::<Block>());
   //println!("size_of LinkedBlock = {}", size_of::<LinkedBlock>());
   //println!("size_of c_int = {}", size_of::<c_int>());
@@ -232,31 +266,25 @@ fn main() {
 //   print_block(Block{row: 6, column: 8, color: Red});
 //   
 //   reset();
-
-  //disable_canonical_input();
-  /*  
-  match poll_stdin(5000) {
-    PollReady   => println("input ready"),
-    PollTimeout => println("timeout"),
-    PollError   => println("error")
-  }
   */
-
-  /*
-  use input_reader::{poll_stdin, PollReady, PollTimeout, read_stdin};
   
   let restorer = terminal_control::set_terminal_raw_mode();
   
-  match poll_stdin(5000) {
-    PollReady => {
-      let c = read_stdin();
-      println!("read {}", c);
-    }
-    PollTimeout => println("timeout!")
+  let mut i = 0;
+  while i < 10 {
+    match poll_stdin(5000) {
+      PollReady => {
+	match read_stdin() {
+	  Up => println("Up"),
+	  Down => println("Down"),
+	  Right => println("Right"),
+	  Left => println("Left"),
+	  Other => println("Other")
+	}
+      }
+      PollTimeout => println("timeout!")
+    }    
+    i += 1;
   }
-  
   restorer.restore();
-  */
-  
-  
 }
