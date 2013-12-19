@@ -1,9 +1,13 @@
+extern mod extra;
 
 //
 // use statement here for now while testing input reading stuff ...
 use std::libc::{c_int, c_short, c_long};
 //
 
+
+
+use extra::time;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -270,21 +274,50 @@ fn main() {
   
   let restorer = terminal_control::set_terminal_raw_mode();
   
-  let mut i = 0;
-  while i < 10 {
-    match poll_stdin(5000) {
-      PollReady => {
+  fn handle_direction(input: ReadResult) {
+    match input {
+      Up    => println(" Up "),
+      Down  => println(" Down "),
+      Right => println(" Right "),
+      Left  => println(" Left "),
+      _     => fail!("unknown direction")
+    }
+  }
+  
+  fn handle_step() {
+    println(" s ");
+  }
+  
+  // 
+  let stepTimeMs: c_int = 3000;
+  
+  // 
+  let mut pollTimeMs = stepTimeMs;
+  
+  // 
+  let mut sinceLastStepNs = 0u64;
+  
+  loop {
+    let t = time::precise_time_ns();
+    match poll_stdin(pollTimeMs) {
+      PollReady   => {
 	match read_stdin() {
-	  Up => println("Up"),
-	  Down => println("Down"),
-	  Right => println("Right"),
-	  Left => println("Left"),
-	  Other => println("Other")
+	  Other => { break; }
+	  input => {
+	    sinceLastStepNs += time::precise_time_ns() - t;
+	    pollTimeMs = stepTimeMs - ((sinceLastStepNs / 1000000) as c_int);
+	    println!("{}", sinceLastStepNs);
+	    handle_direction(input);
+	  }
 	}
       }
-      PollTimeout => println("timeout!")
-    }    
-    i += 1;
+      PollTimeout => {
+	pollTimeMs = stepTimeMs;
+	sinceLastStepNs = 0;
+	handle_step();
+      }
+    }
   }
+  
   restorer.restore();
 }
