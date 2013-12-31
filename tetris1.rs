@@ -1,13 +1,7 @@
 extern mod extra;
-
-//
-// use statement here for now while testing input reading stuff ...
-use std::libc::{c_int, c_short, c_long};
-//
-
-
-
 use extra::time;
+
+use std::libc::c_int;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -119,9 +113,9 @@ mod terminal_control {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// 
-//mod input_reader {
-  //use std::libc::{c_int, c_short, c_long};
+mod input_reader {
+  use std::libc::{c_int, c_short, c_long};
+  use std::cast::transmute;
   
   pub enum PollResult {
     PollReady,
@@ -179,7 +173,7 @@ mod terminal_control {
       // example above is least significant byte order representation of 0x445B1B
       
       let mut buf = 0u64;
-      let bufAddr: *mut u8 = std::cast::transmute(&mut buf);
+      let bufAddr: *mut u8 = transmute(&mut buf);
       
       // first parameter is file descriptor number, 0 ==> standard input
       let numRead = read(0, bufAddr, 8);
@@ -194,13 +188,8 @@ mod terminal_control {
 	_        => Other
       }
     }
-  }
-  
-  
-//}
-
-//fn 
-
+  }  
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -250,7 +239,59 @@ fn init() {
 }
 */
 
+fn main_loop(handle_step: || -> (), handle_direction: |input_reader::ReadResult| -> ()) {
+  use input_reader::{poll_stdin, read_stdin, Other, PollReady, PollTimeout};
+  
+  // milliseconds between piece drop steps
+  let stepTimeMs: c_int = 3000;
+  
+  // milliseconds for poll timeout
+  let mut pollTimeMs = stepTimeMs;
+  
+  // nanoseconds since the last drop step
+  let mut sinceLastStepNs = 0u64;
+  
+  loop {
+    let t = time::precise_time_ns();
+    match poll_stdin(pollTimeMs) {
+      PollReady   => {
+	match read_stdin() {
+	  Other => { break; }
+	  input => {
+	    sinceLastStepNs += time::precise_time_ns() - t;
+	    pollTimeMs = stepTimeMs - ((sinceLastStepNs / 1000000) as c_int);
+	    println!("{}", pollTimeMs);
+	    handle_direction(input);
+	  }
+	}
+      }
+      PollTimeout => {
+	pollTimeMs = stepTimeMs;
+	sinceLastStepNs = 0;
+	handle_step();
+      }
+    }
+  }  
+}
+
+fn handle_step() {
+  println(" s ");
+}
+
+fn handle_direction(input: input_reader::ReadResult) {
+  use input_reader::{Up, Down, Right, Left};
+  match input {
+    Up    => println(" Up "),
+    Down  => println(" Down "),
+    Right => println(" Right "),
+    Left  => println(" Left "),
+    _     => fail!("unknown direction")
+  }
+}
+
 fn main() {
+
+  
   /*
   //println!("size_of Block = {}", size_of::<Block>());
   //println!("size_of LinkedBlock = {}", size_of::<LinkedBlock>());
@@ -274,50 +315,7 @@ fn main() {
   
   let restorer = terminal_control::set_terminal_raw_mode();
   
-  fn handle_direction(input: ReadResult) {
-    match input {
-      Up    => println(" Up "),
-      Down  => println(" Down "),
-      Right => println(" Right "),
-      Left  => println(" Left "),
-      _     => fail!("unknown direction")
-    }
-  }
-  
-  fn handle_step() {
-    println(" s ");
-  }
-  
-  // 
-  let stepTimeMs: c_int = 3000;
-  
-  // 
-  let mut pollTimeMs = stepTimeMs;
-  
-  // 
-  let mut sinceLastStepNs = 0u64;
-  
-  loop {
-    let t = time::precise_time_ns();
-    match poll_stdin(pollTimeMs) {
-      PollReady   => {
-	match read_stdin() {
-	  Other => { break; }
-	  input => {
-	    sinceLastStepNs += time::precise_time_ns() - t;
-	    pollTimeMs = stepTimeMs - ((sinceLastStepNs / 1000000) as c_int);
-	    println!("{}", sinceLastStepNs);
-	    handle_direction(input);
-	  }
-	}
-      }
-      PollTimeout => {
-	pollTimeMs = stepTimeMs;
-	sinceLastStepNs = 0;
-	handle_step();
-      }
-    }
-  }
+  main_loop(handle_step, handle_direction);
   
   restorer.restore();
 }
