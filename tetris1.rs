@@ -1,7 +1,9 @@
 extern mod extra;
 use extra::time;
-
+use std::io::stdio::flush;
 use std::libc::c_int;
+
+use std::libc::sleep;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -193,7 +195,6 @@ mod input_reader {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/*
 enum Color {
   Black = 0, Red, Green, Yellow, Blue, Magenta, Cyan, White
 }
@@ -213,7 +214,7 @@ fn csi() {
   print!("{}[", '\x1B');
 }
 
-fn reset() {
+fn reset_graphics() {
   csi();
   print("m");
 }
@@ -234,10 +235,27 @@ fn print_block(block: Block) {
   print!("{}m ", 40 + (block.color as u8));
 }
 
+
+
 fn init() {
   
 }
-*/
+
+fn handle_step() {
+  println(" s ");
+}
+
+fn handle_direction(input: input_reader::ReadResult) {
+  use input_reader::{Up, Down, Right, Left};
+  match input {
+    Up    => println(" Up "),
+    Down  => println(" Down "),
+    Right => println(" Right "),
+    Left  => println(" Left "),
+    _     => fail!("unknown direction")
+  }
+}
+
 
 fn main_loop(handle_step: || -> (), handle_direction: |input_reader::ReadResult| -> ()) {
   use input_reader::{poll_stdin, read_stdin, Other, PollReady, PollTimeout};
@@ -274,21 +292,6 @@ fn main_loop(handle_step: || -> (), handle_direction: |input_reader::ReadResult|
   }  
 }
 
-fn handle_step() {
-  println(" s ");
-}
-
-fn handle_direction(input: input_reader::ReadResult) {
-  use input_reader::{Up, Down, Right, Left};
-  match input {
-    Up    => println(" Up "),
-    Down  => println(" Down "),
-    Right => println(" Right "),
-    Left  => println(" Left "),
-    _     => fail!("unknown direction")
-  }
-}
-
 fn main() {
 
   
@@ -301,21 +304,40 @@ fn main() {
   //println!("size_of c_long = {}", size_of::<c_long>());
   //println!("size_of pollfd = {}", size_of::<pollfd>());
   
-//   clear_display();
-//   move_cursor(5,5);
-//   print("this is a test");
-//   
-//   print_block(Block{row: 6, column: 5, color: Red});
-//   print_block(Block{row: 6, column: 6, color: Red});
-//   print_block(Block{row: 6, column: 7, color: Red});
-//   print_block(Block{row: 6, column: 8, color: Red});
-//   
-//   reset();
+
   */
   
   let restorer = terminal_control::set_terminal_raw_mode();
   
-  main_loop(handle_step, handle_direction);
+  //main_loop(handle_step, handle_direction);
+  
+  clear_display();
+  move_cursor(5,5);
+  print("this is a test");
+  
+  unsafe {
+    sleep(2);
+  }
+  
+  flush();
+  
+  print_block(Block{row: 6, column: 5, color: Red});
+  print_block(Block{row: 6, column: 6, color: Red});
+  
+  unsafe {
+    sleep(2);
+  }
+  
+  flush();
+  
+  print_block(Block{row: 6, column: 7, color: Red});
+  print_block(Block{row: 6, column: 8, color: Red});
+  
+  unsafe {
+    sleep(2);
+  }
+  
+  reset_graphics();
   
   restorer.restore();
 }
