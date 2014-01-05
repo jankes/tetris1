@@ -326,7 +326,6 @@ fn main_loop<T: GameHandler>(handler: &mut T) {
 	  input => {
 	    sinceLastStepNs += time::precise_time_ns() - t;
 	    pollTimeMs = stepTimeMs - ((sinceLastStepNs / 1000000) as c_int);
-	    println!("{}", pollTimeMs);
 	    handler.handle_input(input);
 	  }
 	}
@@ -340,15 +339,7 @@ fn main_loop<T: GameHandler>(handler: &mut T) {
   }
 }
 
-fn main() {  
-  let restorer = terminal_control::set_terminal_raw_mode();
-  
-  clear_display();
-  // print initial piece here
-  flush();
-  
-  //main_loop(&mut OneBlockGame{block: Block{row: 1, column: 1, color: Red}});
-  
+fn print_prototype_game() {
   fn print_proto() {
     let mut row = 1;
     while row <= 20 {
@@ -372,36 +363,80 @@ fn main() {
   }
   
   fn print_proto_scaled() {
+    
+    reset_graphics();
+    
+    // border
     let mut row = 1;
+    while row <= 40 {
+      move_cursor(row, 23);
+      print("<!");
+      move_cursor(row, 65);
+      print("!>");
+      row += 1;
+    }
+    
+    // blue background
+    row = 1;
     while row <= 20 {
       let mut col = 1;
       while col <= 10 {
-	print_block_scaled(Block{row: row, column: col, color: Blue}, 0, 22);
+	print_block_scaled(Block{row: row, column: col, color: Blue}, 0, 24);
 	col += 1;
       }
       row += 1;
     }
     
-    print_block_scaled(Block{row: 20, column: 1, color: Cyan}, 0, 22);
-    print_block_scaled(Block{row: 20, column: 2, color: Cyan}, 0, 22);
-    print_block_scaled(Block{row: 20, column: 3, color: Cyan}, 0, 22);
-    print_block_scaled(Block{row: 20, column: 4, color: Cyan}, 0, 22);
+    // blocks
+    print_block_scaled(Block{row: 20, column: 1, color: Cyan}, 0, 24);
+    print_block_scaled(Block{row: 20, column: 2, color: Cyan}, 0, 24);
+    print_block_scaled(Block{row: 20, column: 3, color: Cyan}, 0, 24);
+    print_block_scaled(Block{row: 20, column: 4, color: Cyan}, 0, 24);
     
-    print_block_scaled(Block{row: 20, column: 7, color: Cyan}, 0, 22);
-    print_block_scaled(Block{row: 20, column: 8, color: Cyan}, 0, 22);
-    print_block_scaled(Block{row: 20, column: 9, color: Cyan}, 0, 22);
-    print_block_scaled(Block{row: 20, column: 10, color: Cyan}, 0, 22);  
+    print_block_scaled(Block{row: 20, column: 7, color: Cyan}, 0, 24);
+    print_block_scaled(Block{row: 20, column: 8, color: Cyan}, 0, 24);
+    print_block_scaled(Block{row: 20, column: 9, color: Cyan}, 0, 24);
+    print_block_scaled(Block{row: 20, column: 10, color: Cyan}, 0, 24);
+    
+    print_block_scaled(Block{row: 19, column: 1, color: Black}, 0, 24);
+    print_block_scaled(Block{row: 18, column: 1, color: Black}, 0, 24);
+    print_block_scaled(Block{row: 17, column: 1, color: Black}, 0, 24);
+    print_block_scaled(Block{row: 16, column: 1, color: Black}, 0, 24);
   }
-  
   
   print_proto();
   print_proto_scaled();
   
-
-  
   flush();
   unsafe { sleep(2); }
+}
+
+fn main() {
+  let restorer = terminal_control::set_terminal_raw_mode();
+  
+  clear_display();
+  // print initial piece here
+  flush();
+  
+  //main_loop(&mut OneBlockGame{block: Block{row: 1, column: 1, color: Red}});
+  
+  print_prototype_game();
+  
+  // set foreground color to black
+  csi();
+  print("30m");
+  
+  // set background color to white
+  csi();
+  print("47m");
+  print("normal intensity white background  ..");
+  
+  // set high intensity
+  csi();
+  print("1m");
+  print(".. high intensity white background");
   
   reset_graphics();
   restorer.restore();
 }
+
