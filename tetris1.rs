@@ -1,9 +1,10 @@
 extern mod extra;
-use extra::time;
 use std::io::stdio::flush;
 use std::libc::c_int;
 
 use std::libc::sleep;
+
+use graphics::Display;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -209,69 +210,104 @@ struct LinkedBlock {
   next: Option<~LinkedBlock>
 }
 
-fn csi() {
-  print!("{}[", '\x1B');
+
+mod graphics {
+  use super::Block;
+  
+  fn csi() {
+    print!("{}[", '\x1B');
+  }
+
+  fn clear_display() {
+    csi();
+    print("2J");
+  }
+
+  fn reset_graphics() {
+    csi();
+    print("0m");
+  }
+
+  fn move_cursor(row: u8, column: u8) {
+    csi();
+    print!("{};{}H", row, column);
+  }
+  
+  fn set_background_color(offset: u8) {
+    csi();
+    print!("{}m", 40 + offset);
+  }
+  
+  fn print_borders(rows: u8, cols: u8, rowOffset: u8, columnOffset: u8) {
+    reset_graphics();
+
+    let mut row = 1;
+    while row <= rows {
+      move_cursor(row + rowOffset, 1 + columnOffset);
+      print("<!");
+      move_cursor(row + rowOffset, 3 + cols + columnOffset);
+      print("!>");
+      row += 1;
+    }
+  }
+  
+  pub trait Display {
+    fn clear(&self);
+    fn print_block(&self, block: Block);
+    fn print_borders(&self);
+  }
+
+  pub struct StandardDisplay;
+
+  // terminal level row/column offsets for everything (Blocks, borders, ...)
+  static stdRowOffset: u8 = 2u8;
+  static stdColumnOffset: u8 = 3u8;
+  
+  // terminal level number of columns a left/right border takes
+  static stdBorderColumns: u8 = 2u8;
+  
+  impl Display for StandardDisplay {
+    fn clear(&self) {
+      clear_display();
+    }
+    
+    fn print_block(&self, block: Block) {
+      move_cursor(block.row + stdRowOffset, 2 * block.column + stdBorderColumns - 1 + stdColumnOffset);
+      set_background_color(block.color as u8);
+      print("  ");
+    }
+    
+    fn print_borders(&self) {
+      print_borders(20, 20, stdRowOffset, stdColumnOffset);
+    }
+  }
+  
+  pub struct DoubleDisplay;
+  
+  static dblRowOffset: u8 = 2u8;
+  static dblColumnOffset: u8 = 30u8;
+  static dblBorderColumns: u8 = 2u8;
+  
+  impl Display for DoubleDisplay {
+    fn clear(&self) {
+      clear_display();
+    }
+    
+    fn print_block(&self, block: Block) {
+      move_cursor(2 * block.row + dblRowOffset, 4 * block.column - 3 + dblBorderColumns + dblColumnOffset);
+      set_background_color(block.color as u8);
+      print("    ");
+      move_cursor(2 * block.row - 1 + dblRowOffset, 4 * block.column - 3 + dblBorderColumns + dblColumnOffset);
+      print("    ");
+    }
+    
+    fn print_borders(&self) {
+      print_borders(40, 40, dblRowOffset, dblColumnOffset);
+    }
+  }
 }
 
-fn clear_display() {
-  csi();
-  print("2J");
-}
-
-fn reset_graphics() {
-  csi();
-  print("0m");
-}
-
-fn move_cursor(row: u8, column: u8) {
-  csi();
-  print!("{};{}H", row, column);
-}
-
-fn print_block(block: Block, rowOffset: u8, columnOffset: u8) {  
-  move_cursor(block.row + rowOffset, 2 * block.column + columnOffset);
-  csi();
-  print!("{}m ", 40 + (block.color as u8));
-  move_cursor(block.row + rowOffset, 2 * block.column - 1 + columnOffset);
-  csi();
-  print!("{}m ", 40 + (block.color as u8));
-}
-
-fn print_block_scaled(block: Block, rowOffset: u8, columnOffset: u8) {
-  move_cursor(2 * block.row + rowOffset, 4 * block.column + columnOffset);
-  csi();
-  print!("{}m ", 40 + (block.color as u8));
-  
-  move_cursor(2 * block.row + rowOffset, 4 * block.column - 1 + columnOffset);
-  csi();
-  print!("{}m ", 40 + (block.color as u8));
-  
-  move_cursor(2 * block.row + rowOffset, 4 * block.column - 2 + columnOffset);
-  csi();
-  print!("{}m ", 40 + (block.color as u8));
-  
-  move_cursor(2 * block.row + rowOffset, 4 * block.column - 3 + columnOffset);
-  csi();
-  print!("{}m ", 40 + (block.color as u8));
-  
-  
-  
-  move_cursor(2 * block.row  - 1 + rowOffset, 4 * block.column + columnOffset);
-  csi();
-  print!("{}m ", 40 + (block.color as u8));
-  
-  move_cursor(2 * block.row - 1 + rowOffset, 4 * block.column - 1 + columnOffset);
-  csi();
-  print!("{}m ", 40 + (block.color as u8));
-  
-  move_cursor(2 * block.row - 1 + rowOffset, 4 * block.column - 2 + columnOffset);
-  csi();
-  print!("{}m ", 40 + (block.color as u8));
-  
-  move_cursor(2 * block.row - 1 + rowOffset, 4 * block.column - 3 + columnOffset);
-  csi();
-  print!("{}m ", 40 + (block.color as u8));
-}
+/*
 
 trait GameHandler {
   fn handle_step(&mut self);
@@ -339,78 +375,6 @@ fn main_loop<T: GameHandler>(handler: &mut T) {
   }
 }
 
-fn print_prototype_game() {
-  fn print_proto() {
-    let mut row = 1;
-    while row <= 20 {
-      let mut col = 1;
-      while col <= 10 {
-	print_block(Block{row: row, column: col, color: Blue}, 0, 0);
-	col += 1;
-      }
-      row += 1;
-    }
-    
-    print_block(Block{row: 20, column: 1, color: Cyan}, 0, 0);
-    print_block(Block{row: 20, column: 2, color: Cyan}, 0, 0);
-    print_block(Block{row: 20, column: 3, color: Cyan}, 0, 0);
-    print_block(Block{row: 20, column: 4, color: Cyan}, 0, 0);
-    
-    print_block(Block{row: 20, column: 7, color: Cyan}, 0, 0);
-    print_block(Block{row: 20, column: 8, color: Cyan}, 0, 0);
-    print_block(Block{row: 20, column: 9, color: Cyan}, 0, 0);
-    print_block(Block{row: 20, column: 10, color: Cyan}, 0, 0);  
-  }
-  
-  fn print_proto_scaled() {
-    
-    reset_graphics();
-    
-    // border
-    let mut row = 1;
-    while row <= 40 {
-      move_cursor(row, 23);
-      print("<!");
-      move_cursor(row, 65);
-      print("!>");
-      row += 1;
-    }
-    
-    // blue background
-    row = 1;
-    while row <= 20 {
-      let mut col = 1;
-      while col <= 10 {
-	print_block_scaled(Block{row: row, column: col, color: Blue}, 0, 24);
-	col += 1;
-      }
-      row += 1;
-    }
-    
-    // blocks
-    print_block_scaled(Block{row: 20, column: 1, color: Cyan}, 0, 24);
-    print_block_scaled(Block{row: 20, column: 2, color: Cyan}, 0, 24);
-    print_block_scaled(Block{row: 20, column: 3, color: Cyan}, 0, 24);
-    print_block_scaled(Block{row: 20, column: 4, color: Cyan}, 0, 24);
-    
-    print_block_scaled(Block{row: 20, column: 7, color: Cyan}, 0, 24);
-    print_block_scaled(Block{row: 20, column: 8, color: Cyan}, 0, 24);
-    print_block_scaled(Block{row: 20, column: 9, color: Cyan}, 0, 24);
-    print_block_scaled(Block{row: 20, column: 10, color: Cyan}, 0, 24);
-    
-    print_block_scaled(Block{row: 19, column: 1, color: Black}, 0, 24);
-    print_block_scaled(Block{row: 18, column: 1, color: Black}, 0, 24);
-    print_block_scaled(Block{row: 17, column: 1, color: Black}, 0, 24);
-    print_block_scaled(Block{row: 16, column: 1, color: Black}, 0, 24);
-  }
-  
-  print_proto();
-  print_proto_scaled();
-  
-  flush();
-  unsafe { sleep(2); }
-}
-
 fn main() {
   let restorer = terminal_control::set_terminal_raw_mode();
   
@@ -418,25 +382,42 @@ fn main() {
   // print initial piece here
   flush();
   
-  //main_loop(&mut OneBlockGame{block: Block{row: 1, column: 1, color: Red}});
-  
-  print_prototype_game();
-  
-  // set foreground color to black
-  csi();
-  print("30m");
-  
-  // set background color to white
-  csi();
-  print("47m");
-  print("normal intensity white background  ..");
-  
-  // set high intensity
-  csi();
-  print("1m");
-  print(".. high intensity white background");
+  main_loop(&mut OneBlockGame{block: Block{row: 1, column: 1, color: Red}});
   
   reset_graphics();
   restorer.restore();
 }
+*/
 
+fn print_proto_game(display: &Display) {
+  display.print_borders();
+
+  let mut col = 1;
+  while col <= 10 {
+    display.print_block(Block{row: 1, column: col, color: Blue});
+    col += 1;
+  }
+
+  display.print_block(Block{row: 1, column: 10, color: Red});
+  
+  display.print_block(Block{row: 5, column: 3, color: Green});
+}
+
+fn main() {
+  
+  let restorer = terminal_control::set_terminal_raw_mode();
+  let stdDisplay = graphics::StandardDisplay;
+  let dblDisplay = graphics::DoubleDisplay;
+  
+  stdDisplay.clear();
+
+  print_proto_game(&stdDisplay as &Display);
+  
+  print_proto_game(&dblDisplay as &Display);
+  
+  flush();
+  
+  unsafe { sleep(2); }
+  
+  restorer.restore();
+}
