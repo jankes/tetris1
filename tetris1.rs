@@ -112,7 +112,6 @@ mod terminal_control {
   */
 }
 
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 mod input_reader {
@@ -214,14 +213,14 @@ fn csi() {
   print!("{}[", '\x1B');
 }
 
-fn reset_graphics() {
-  csi();
-  print("m");
-}
-
 fn clear_display() {
   csi();
   print("2J");
+}
+
+fn reset_graphics() {
+  csi();
+  print("0m");
 }
 
 fn move_cursor(row: u8, column: u8) {
@@ -229,35 +228,84 @@ fn move_cursor(row: u8, column: u8) {
   print!("{};{}H", row, column);
 }
 
-fn print_block(block: Block) {  
-  move_cursor(block.row, block.column);
+fn print_block(block: Block, rowOffset: u8, columnOffset: u8) {  
+  move_cursor(block.row + rowOffset, 2 * block.column + columnOffset);
+  csi();
+  print!("{}m ", 40 + (block.color as u8));
+  move_cursor(block.row + rowOffset, 2 * block.column - 1 + columnOffset);
   csi();
   print!("{}m ", 40 + (block.color as u8));
 }
 
-
-
-fn init() {
+fn print_block_scaled(block: Block, rowOffset: u8, columnOffset: u8) {
+  move_cursor(2 * block.row + rowOffset, 4 * block.column + columnOffset);
+  csi();
+  print!("{}m ", 40 + (block.color as u8));
   
+  move_cursor(2 * block.row + rowOffset, 4 * block.column - 1 + columnOffset);
+  csi();
+  print!("{}m ", 40 + (block.color as u8));
+  
+  move_cursor(2 * block.row + rowOffset, 4 * block.column - 2 + columnOffset);
+  csi();
+  print!("{}m ", 40 + (block.color as u8));
+  
+  move_cursor(2 * block.row + rowOffset, 4 * block.column - 3 + columnOffset);
+  csi();
+  print!("{}m ", 40 + (block.color as u8));
+  
+  
+  
+  move_cursor(2 * block.row  - 1 + rowOffset, 4 * block.column + columnOffset);
+  csi();
+  print!("{}m ", 40 + (block.color as u8));
+  
+  move_cursor(2 * block.row - 1 + rowOffset, 4 * block.column - 1 + columnOffset);
+  csi();
+  print!("{}m ", 40 + (block.color as u8));
+  
+  move_cursor(2 * block.row - 1 + rowOffset, 4 * block.column - 2 + columnOffset);
+  csi();
+  print!("{}m ", 40 + (block.color as u8));
+  
+  move_cursor(2 * block.row - 1 + rowOffset, 4 * block.column - 3 + columnOffset);
+  csi();
+  print!("{}m ", 40 + (block.color as u8));
 }
 
-fn handle_step() {
-  println(" s ");
+trait GameHandler {
+  fn handle_step(&mut self);
+  fn handle_input(&mut self, input: input_reader::ReadResult);
 }
 
-fn handle_direction(input: input_reader::ReadResult) {
-  use input_reader::{Up, Down, Right, Left};
-  match input {
-    Up    => println(" Up "),
-    Down  => println(" Down "),
-    Right => println(" Right "),
-    Left  => println(" Left "),
-    _     => fail!("unknown direction")
+struct OneBlockGame {
+  block: Block
+}
+
+impl GameHandler for OneBlockGame {
+  fn handle_step(&mut self) {
+    print_block(Block{row: self.block.row, column: self.block.column, color: Black}, 0, 0);
+    
+    self.block.row += 1;
+    
+    print_block(self.block, 0, 0);
+    
+    flush();
+  }
+  
+  fn handle_input(&mut self, input: input_reader::ReadResult) {
+    use input_reader::{Up, Down, Right, Left};
+    match input {
+      Up    => println(" Up "),
+      Down  => println(" Down "),
+      Right => println(" Right "),
+      Left  => println(" Left "),
+      _     => fail!("unknown direction")
+    }
   }
 }
 
-
-fn main_loop(handle_step: || -> (), handle_direction: |input_reader::ReadResult| -> ()) {
+fn main_loop<T: GameHandler>(handler: &mut T) {
   use input_reader::{poll_stdin, read_stdin, Other, PollReady, PollTimeout};
   
   // milliseconds between piece drop steps
@@ -279,65 +327,81 @@ fn main_loop(handle_step: || -> (), handle_direction: |input_reader::ReadResult|
 	    sinceLastStepNs += time::precise_time_ns() - t;
 	    pollTimeMs = stepTimeMs - ((sinceLastStepNs / 1000000) as c_int);
 	    println!("{}", pollTimeMs);
-	    handle_direction(input);
+	    handler.handle_input(input);
 	  }
 	}
       }
       PollTimeout => {
 	pollTimeMs = stepTimeMs;
 	sinceLastStepNs = 0;
-	handle_step();
+	handler.handle_step();
       }
     }
-  }  
+  }
 }
 
-fn main() {
-
-  
-  /*
-  //println!("size_of Block = {}", size_of::<Block>());
-  //println!("size_of LinkedBlock = {}", size_of::<LinkedBlock>());
-  //println!("size_of c_int = {}", size_of::<c_int>());
-  //println!("size_of termios = {}", size_of::<termios>());
-
-  //println!("size_of c_long = {}", size_of::<c_long>());
-  //println!("size_of pollfd = {}", size_of::<pollfd>());
-  
-
-  */
-  
+fn main() {  
   let restorer = terminal_control::set_terminal_raw_mode();
   
-  //main_loop(handle_step, handle_direction);
-  
   clear_display();
-  move_cursor(5,5);
-  print("this is a test");
-  
-  unsafe {
-    sleep(2);
-  }
-  
+  // print initial piece here
   flush();
   
-  print_block(Block{row: 6, column: 5, color: Red});
-  print_block(Block{row: 6, column: 6, color: Red});
+  //main_loop(&mut OneBlockGame{block: Block{row: 1, column: 1, color: Red}});
   
-  unsafe {
-    sleep(2);
+  fn print_proto() {
+    let mut row = 1;
+    while row <= 20 {
+      let mut col = 1;
+      while col <= 10 {
+	print_block(Block{row: row, column: col, color: Blue}, 0, 0);
+	col += 1;
+      }
+      row += 1;
+    }
+    
+    print_block(Block{row: 20, column: 1, color: Cyan}, 0, 0);
+    print_block(Block{row: 20, column: 2, color: Cyan}, 0, 0);
+    print_block(Block{row: 20, column: 3, color: Cyan}, 0, 0);
+    print_block(Block{row: 20, column: 4, color: Cyan}, 0, 0);
+    
+    print_block(Block{row: 20, column: 7, color: Cyan}, 0, 0);
+    print_block(Block{row: 20, column: 8, color: Cyan}, 0, 0);
+    print_block(Block{row: 20, column: 9, color: Cyan}, 0, 0);
+    print_block(Block{row: 20, column: 10, color: Cyan}, 0, 0);  
   }
+  
+  fn print_proto_scaled() {
+    let mut row = 1;
+    while row <= 20 {
+      let mut col = 1;
+      while col <= 10 {
+	print_block_scaled(Block{row: row, column: col, color: Blue}, 0, 22);
+	col += 1;
+      }
+      row += 1;
+    }
+    
+    print_block_scaled(Block{row: 20, column: 1, color: Cyan}, 0, 22);
+    print_block_scaled(Block{row: 20, column: 2, color: Cyan}, 0, 22);
+    print_block_scaled(Block{row: 20, column: 3, color: Cyan}, 0, 22);
+    print_block_scaled(Block{row: 20, column: 4, color: Cyan}, 0, 22);
+    
+    print_block_scaled(Block{row: 20, column: 7, color: Cyan}, 0, 22);
+    print_block_scaled(Block{row: 20, column: 8, color: Cyan}, 0, 22);
+    print_block_scaled(Block{row: 20, column: 9, color: Cyan}, 0, 22);
+    print_block_scaled(Block{row: 20, column: 10, color: Cyan}, 0, 22);  
+  }
+  
+  
+  print_proto();
+  print_proto_scaled();
+  
+
   
   flush();
-  
-  print_block(Block{row: 6, column: 7, color: Red});
-  print_block(Block{row: 6, column: 8, color: Red});
-  
-  unsafe {
-    sleep(2);
-  }
+  unsafe { sleep(2); }
   
   reset_graphics();
-  
   restorer.restore();
 }
