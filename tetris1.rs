@@ -1,4 +1,5 @@
 extern mod extra;
+use extra::time;
 use std::io::stdio::flush;
 use std::libc::c_int;
 
@@ -195,22 +196,6 @@ mod input_reader {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-enum Color {
-  Black = 0, Red, Green, Yellow, Blue, Magenta, Cyan, White
-}
-
-struct Block {
-  row: u8,
-  column: u8,
-  color: Color
-}
-
-struct LinkedBlock {
-  block: Block,
-  next: Option<~LinkedBlock>
-}
-
-
 mod graphics {
   use super::Block;
   
@@ -252,9 +237,9 @@ mod graphics {
   }
   
   pub trait Display {
-    fn clear(&self);
+    fn init(&self);
     fn print_block(&self, block: Block);
-    fn print_borders(&self);
+    fn close(&self);
   }
 
   pub struct StandardDisplay;
@@ -267,18 +252,19 @@ mod graphics {
   static stdBorderColumns: u8 = 2u8;
   
   impl Display for StandardDisplay {
-    fn clear(&self) {
-      clear_display();
-    }
-    
     fn print_block(&self, block: Block) {
       move_cursor(block.row + stdRowOffset, 2 * block.column + stdBorderColumns - 1 + stdColumnOffset);
       set_background_color(block.color as u8);
       print("  ");
     }
     
-    fn print_borders(&self) {
+    fn init(&self) {
+      clear_display();
       print_borders(20, 20, stdRowOffset, stdColumnOffset);
+    }
+    
+    fn close(&self) {
+      reset_graphics();
     }
   }
   
@@ -289,10 +275,6 @@ mod graphics {
   static dblBorderColumns: u8 = 2u8;
   
   impl Display for DoubleDisplay {
-    fn clear(&self) {
-      clear_display();
-    }
-    
     fn print_block(&self, block: Block) {
       move_cursor(2 * block.row + dblRowOffset, 4 * block.column - 3 + dblBorderColumns + dblColumnOffset);
       set_background_color(block.color as u8);
@@ -301,30 +283,49 @@ mod graphics {
       print("    ");
     }
     
-    fn print_borders(&self) {
+    fn init(&self) {
+      clear_display();
       print_borders(40, 40, dblRowOffset, dblColumnOffset);
+    }
+    
+    fn close(&self) {
+      reset_graphics();
     }
   }
 }
 
-/*
+enum Color {
+  Black = 0, Red, Green, Yellow, Blue, Magenta, Cyan, White
+}
+
+struct Block {
+  row: u8,
+  column: u8,
+  color: Color
+}
+
+struct LinkedBlock {
+  block: Block,
+  next: Option<~LinkedBlock>
+}
 
 trait GameHandler {
   fn handle_step(&mut self);
   fn handle_input(&mut self, input: input_reader::ReadResult);
 }
 
-struct OneBlockGame {
+struct OneBlockGame<'a> {
+  display: &'a Display,
   block: Block
 }
 
-impl GameHandler for OneBlockGame {
+impl<'a> GameHandler for OneBlockGame<'a> {
   fn handle_step(&mut self) {
-    print_block(Block{row: self.block.row, column: self.block.column, color: Black}, 0, 0);
+    self.display.print_block(Block{row: self.block.row, column: self.block.column, color: Black});
     
     self.block.row += 1;
     
-    print_block(self.block, 0, 0);
+    self.display.print_block(self.block);
     
     flush();
   }
@@ -378,46 +379,14 @@ fn main_loop<T: GameHandler>(handler: &mut T) {
 fn main() {
   let restorer = terminal_control::set_terminal_raw_mode();
   
-  clear_display();
-  // print initial piece here
+  // TODO: ask the user if they want standard or double size
+  let display = graphics::StandardDisplay;
+  display.init();
+  // TODO: print initial piece here
   flush();
   
-  main_loop(&mut OneBlockGame{block: Block{row: 1, column: 1, color: Red}});
+  main_loop(&mut OneBlockGame{display: &display as &Display, block: Block{row: 1, column: 1, color: Red}});
   
-  reset_graphics();
-  restorer.restore();
-}
-*/
-
-fn print_proto_game(display: &Display) {
-  display.print_borders();
-
-  let mut col = 1;
-  while col <= 10 {
-    display.print_block(Block{row: 1, column: col, color: Blue});
-    col += 1;
-  }
-
-  display.print_block(Block{row: 1, column: 10, color: Red});
-  
-  display.print_block(Block{row: 5, column: 3, color: Green});
-}
-
-fn main() {
-  
-  let restorer = terminal_control::set_terminal_raw_mode();
-  let stdDisplay = graphics::StandardDisplay;
-  let dblDisplay = graphics::DoubleDisplay;
-  
-  stdDisplay.clear();
-
-  print_proto_game(&stdDisplay as &Display);
-  
-  print_proto_game(&dblDisplay as &Display);
-  
-  flush();
-  
-  unsafe { sleep(2); }
-  
+  display.close();
   restorer.restore();
 }
