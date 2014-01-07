@@ -7,9 +7,9 @@ use std::libc::sleep;
 
 use graphics::Display;
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+use std::mem::size_of;
 
-// terminal control
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 mod terminal_control {
   use std::libc::c_int;
@@ -294,6 +294,8 @@ mod graphics {
   }
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 enum Color {
   Black = 0, Red, Green, Yellow, Blue, Magenta, Cyan, White
 }
@@ -304,10 +306,94 @@ struct Block {
   color: Color
 }
 
-struct LinkedBlock {
-  block: Block,
-  next: Option<~LinkedBlock>
+enum PieceType {
+  I = 0, J, L, O, S, T, Z
 }
+
+struct Piece {
+  ty: PieceType,
+  rotate: u8,
+  blocks: [Block, ..4]
+}
+
+trait Offset {
+  fn row(self) -> i8;
+  fn col(self) -> i8;
+}
+
+impl Offset for (i8, i8) {
+  fn row(self) -> i8 {
+    let (row, _) = self;
+    row
+  }
+  
+  fn col(self) -> i8 {
+    let (_, col) = self;
+    col
+  }
+}
+
+static blockRotate: [[[(i8, i8), ..4], ..4], ..7] =
+[
+// I
+[[(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)]],
+
+// J
+[[(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)]],
+
+// L
+[[(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)]],
+
+// O
+[[(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)]],
+
+// S
+[[(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)]],
+
+// T
+[[(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)]],
+
+// Z
+[[(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)]]
+];
+
+fn transform_blocks(clockwise: bool, blocks: &[Block, ..4], transform: [(i8, i8), ..4]) -> [Block, ..4] {
+  let s = if clockwise { 1i8 } else { -1i8 };
+  [
+  Block{row: (blocks[0].row as i8 + s * transform[0].row()) as u8,
+        column: (blocks[0].column as i8 + s * transform[0].col()) as u8,
+        color: blocks[0].color},
+  
+  Block{row: (blocks[1].row as i8 + s * transform[1].row()) as u8,
+        column: (blocks[1].column as i8 + s * transform[1].col()) as u8,
+        color: blocks[1].color},
+  
+  Block{row: (blocks[2].row as i8 + s * transform[2].row()) as u8,
+        column: (blocks[2].column as i8 + s * transform[2].col()) as u8,
+        color: blocks[2].color},
+  
+  Block{row: (blocks[3].row as i8 + s * transform[3].row()) as u8,
+        column: (blocks[3].column as i8 + s * transform[3].col()) as u8,
+        color: blocks[3].color}
+  ]
+}
+
+fn rotate_clockwise(piece: &Piece) -> Piece {
+  Piece {
+    ty: piece.ty,
+    rotate: (piece.rotate + 1) % 4,
+    blocks: transform_blocks(true, &piece.blocks, blockRotate[piece.ty as int][piece.rotate])
+  }
+}
+
+fn rotate_counter_clockwise(piece: &Piece) -> Piece {
+  Piece {
+    ty: piece.ty,
+    rotate: (piece.rotate + 3) % 4,
+    blocks: transform_blocks(false, &piece.blocks, blockRotate[piece.ty as int][(piece.rotate + 2) % 4])
+  }
+}
+
 
 trait GameHandler {
   fn handle_step(&mut self);
@@ -376,7 +462,7 @@ fn main_loop<T: GameHandler>(handler: &mut T) {
   }
 }
 
-fn main() {
+fn main() {  
   let restorer = terminal_control::set_terminal_raw_mode();
   
   // TODO: ask the user if they want standard or double size
