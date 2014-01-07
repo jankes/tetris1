@@ -213,7 +213,7 @@ mod graphics {
     print("0m");
   }
 
-  fn move_cursor(row: u8, column: u8) {
+  fn move_cursor(row: i8, column: i8) {
     csi();
     print!("{};{}H", row, column);
   }
@@ -223,7 +223,7 @@ mod graphics {
     print!("{}m", 40 + offset);
   }
   
-  fn print_borders(rows: u8, cols: u8, rowOffset: u8, columnOffset: u8) {
+  fn print_borders(rows: i8, cols: i8, rowOffset: i8, columnOffset: i8) {
     reset_graphics();
 
     let mut row = 1;
@@ -245,11 +245,11 @@ mod graphics {
   pub struct StandardDisplay;
 
   // terminal level row/column offsets for everything (Blocks, borders, ...)
-  static stdRowOffset: u8 = 2u8;
-  static stdColumnOffset: u8 = 3u8;
+  static stdRowOffset: i8 = 2i8;
+  static stdColumnOffset: i8 = 3i8;
   
   // terminal level number of columns a left/right border takes
-  static stdBorderColumns: u8 = 2u8;
+  static stdBorderColumns: i8 = 2i8;
   
   impl Display for StandardDisplay {
     fn print_block(&self, block: Block) {
@@ -270,12 +270,13 @@ mod graphics {
   
   pub struct DoubleDisplay;
   
-  static dblRowOffset: u8 = 2u8;
-  static dblColumnOffset: u8 = 30u8;
-  static dblBorderColumns: u8 = 2u8;
+  static dblRowOffset: i8 = 2i8;
+  static dblColumnOffset: i8 = 30i8;
+  static dblBorderColumns: i8 = 2i8;
   
   impl Display for DoubleDisplay {
     fn print_block(&self, block: Block) {
+      // TODO: handle case of not printing blocks with negative row/column
       move_cursor(2 * block.row + dblRowOffset, 4 * block.column - 3 + dblBorderColumns + dblColumnOffset);
       set_background_color(block.color as u8);
       print("    ");
@@ -301,8 +302,8 @@ enum Color {
 }
 
 struct Block {
-  row: u8,
-  column: u8,
+  row: i8,
+  column: i8,
   color: Color
 }
 
@@ -360,21 +361,21 @@ static blockRotate: [[[(i8, i8), ..4], ..4], ..7] =
 fn transform_blocks(clockwise: bool, blocks: &[Block, ..4], transform: [(i8, i8), ..4]) -> [Block, ..4] {
   let s = if clockwise { 1i8 } else { -1i8 };
   [
-  Block{row: (blocks[0].row as i8 + s * transform[0].row()) as u8,
-        column: (blocks[0].column as i8 + s * transform[0].col()) as u8,
-        color: blocks[0].color},
+  Block{row:    blocks[0].row    + s * transform[0].row(),
+        column: blocks[0].column + s * transform[0].col(),
+        color:  blocks[0].color},
   
-  Block{row: (blocks[1].row as i8 + s * transform[1].row()) as u8,
-        column: (blocks[1].column as i8 + s * transform[1].col()) as u8,
+  Block{row:    blocks[1].row    + s * transform[1].row(),
+        column: blocks[1].column + s * transform[1].col(),
         color: blocks[1].color},
   
-  Block{row: (blocks[2].row as i8 + s * transform[2].row()) as u8,
-        column: (blocks[2].column as i8 + s * transform[2].col()) as u8,
-        color: blocks[2].color},
+  Block{row:    blocks[2].row    + s * transform[2].row(),
+        column: blocks[2].column + s * transform[2].col(),
+        color:  blocks[2].color},
   
-  Block{row: (blocks[3].row as i8 + s * transform[3].row()) as u8,
-        column: (blocks[3].column as i8 + s * transform[3].col()) as u8,
-        color: blocks[3].color}
+  Block{row:    blocks[3].row    + s * transform[3].row(),
+        column: blocks[3].column + s * transform[3].col(),
+        color:  blocks[3].color}
   ]
 }
 
