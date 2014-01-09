@@ -1,13 +1,8 @@
 extern mod extra;
 use extra::time;
-use std::io::stdio::flush;
 use std::libc::c_int;
 
-use std::libc::sleep;
-
 use graphics::Display;
-
-use std::mem::size_of;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -197,6 +192,7 @@ mod input_reader {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 mod graphics {
+  use std::io::stdio::flush;
   use super::Block;
   
   fn csi() {
@@ -255,6 +251,7 @@ mod graphics {
     fn init(&self);
     fn print_block(&self, block: Block);
     fn close(&self);
+    fn flush(&self);
   }
 
   pub struct StandardDisplay;
@@ -279,13 +276,18 @@ mod graphics {
     fn init(&self) {
       clear_display();
       print_borders(20, 20, stdRowOffset, stdColumnOffset);
+      flush();
     }
     
     fn close(&self) {
       reset_graphics();
     }
+    
+    fn flush(&self) {
+      flush();
+    }
   }
-  
+  /*
   pub struct DoubleDisplay;
   
   static dblRowOffset: i8 = 2i8;
@@ -313,6 +315,7 @@ mod graphics {
       reset_graphics();
     }
   }
+  */
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -354,10 +357,59 @@ impl Offset for (i8, i8) {
   }
 }
 
-static blockRotate: [[[(i8, i8), ..4], ..4], ..7] =
+static pieceInitial: [Piece, ..2] = 
+[
+  Piece{ty:     I,
+        rotate: 0,
+        blocks: [Block{row: 0, column: 4, color: Cyan},
+                 Block{row: 0, column: 5, color: Cyan},
+                 Block{row: 0, column: 6, color: Cyan},
+                 Block{row: 0, column: 7, color: Cyan}]},
+  
+  Piece{ty:     J,
+        rotate: 0,
+        blocks: [Block{row: -1, column: 3, color: Blue},
+                 Block{row: 0, column: 3, color: Blue},
+                 Block{row: 0, column: 4, color: Blue},
+                 Block{row: 0, column: 5, color: Blue}]},
+/*
+   
+   // L
+   [Block{row: -1, column: 4, color: Cyan},
+    Block{row: -1, column: 5, color: Cyan},
+    Block{row: -1, column: 6, color: Cyan},
+    Block{row: -1, column: 7, color: Cyan}],
+   
+   // O
+   [Block{row: -1, column: 4, color: Cyan},
+    Block{row: -1, column: 5, color: Cyan},
+    Block{row: -1, column: 6, color: Cyan},
+    Block{row: -1, column: 7, color: Cyan}],
+   
+   // S
+   [Block{row: -1, column: 4, color: Cyan},
+    Block{row: -1, column: 5, color: Cyan},
+    Block{row: -1, column: 6, color: Cyan},
+    Block{row: -1, column: 7, color: Cyan}],
+    
+   // T
+   [Block{row: -1, column: 4, color: Cyan},
+    Block{row: -1, column: 5, color: Cyan},
+    Block{row: -1, column: 6, color: Cyan},
+    Block{row: -1, column: 7, color: Cyan}],
+    
+   // Z
+   [Block{row: -1, column: 4, color: Cyan},
+    Block{row: -1, column: 5, color: Cyan},
+    Block{row: -1, column: 6, color: Cyan},
+    Block{row: -1, column: 7, color: Cyan}],
+*/
+];
+
+static pieceRotate: [[[(i8, i8), ..4], ..4], ..7] =
 [
 // I
-[[(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)]],
+[[(-3,1),(-2,0),(-1,-1),(0,-2)], [(3,2),(2,1),(1,0),(0,-1)], [(0,-2),(-1,-1),(-2,0),(-3,1)], [(0,-1),(1,0),(2,1),(3,2)]],
 
 // J
 [[(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)]],
@@ -403,7 +455,7 @@ fn rotate_clockwise(piece: &Piece) -> Piece {
   Piece {
     ty: piece.ty,
     rotate: (piece.rotate + 1) % 4,
-    blocks: transform_blocks(true, &piece.blocks, blockRotate[piece.ty as int][piece.rotate])
+    blocks: transform_blocks(true, &piece.blocks, pieceRotate[piece.ty as int][piece.rotate])
   }
 }
 
@@ -411,39 +463,76 @@ fn rotate_counter_clockwise(piece: &Piece) -> Piece {
   Piece {
     ty: piece.ty,
     rotate: (piece.rotate + 3) % 4,
-    blocks: transform_blocks(false, &piece.blocks, blockRotate[piece.ty as int][(piece.rotate + 2) % 4])
+    blocks: transform_blocks(false, &piece.blocks, pieceRotate[piece.ty as int][(piece.rotate + 3) % 4])
   }
 }
 
 
 trait GameHandler {
+  fn init(&mut self);
   fn handle_step(&mut self);
   fn handle_input(&mut self, input: input_reader::ReadResult);
 }
 
-struct OneBlockGame<'a> {
+struct OnePieceGame<'a> {
   display: &'a Display,
-  block: Block
+  piece: Piece
 }
 
-impl<'a> GameHandler for OneBlockGame<'a> {
-  fn handle_step(&mut self) {
-    self.display.print_block(Block{row: self.block.row, column: self.block.column, color: Black});
+impl<'a> OnePieceGame<'a> {
+  fn erase(&self) {
+    for block in self.piece.blocks.iter() {
+      self.display.print_block(Block{row: block.row, column: block.column, color: Black}); 
+    }
+  }
+  
+  fn print(&self) {
+    for block in self.piece.blocks.iter() {
+      self.display.print_block(*block);
+    }
+    self.display.flush();
+  }
+  
+  fn translate(&mut self, rowOffset: i8, columnOffset: i8) {
+    self.erase();
     
-    self.block.row += 1;
+    for block in self.piece.blocks.mut_iter() {
+      block.row += rowOffset;
+      block.column += columnOffset;
+    }
     
-    self.display.print_block(self.block);
+    self.print();
+  }
+  
+  fn rotate(&mut self, clockwise: bool) {
+    self.erase();
     
-    flush();
+    if clockwise {
+      self.piece = rotate_clockwise(&self.piece);
+    } else { 
+      self.piece = rotate_counter_clockwise(&self.piece);
+    }
+    
+    self.print();
+  }
+}
+
+impl<'a> GameHandler for OnePieceGame<'a> {
+  fn init(&mut self) {
+    
+  }
+  
+  fn handle_step(&mut self) {    
+    self.translate(1, 0);
   }
   
   fn handle_input(&mut self, input: input_reader::ReadResult) {
     use input_reader::{Up, Down, Right, Left};
     match input {
-      Up    => println(" Up "),
-      Down  => println(" Down "),
-      Right => println(" Right "),
-      Left  => println(" Left "),
+      Up    => self.rotate(true),
+      Down  => self.rotate(false),
+      Right => self.translate(0, 1),
+      Left  => self.translate(0, -1),
       _     => fail!("unknown direction")
     }
   }
@@ -453,7 +542,7 @@ fn main_loop<T: GameHandler>(handler: &mut T) {
   use input_reader::{poll_stdin, read_stdin, Other, PollReady, PollTimeout};
   
   // milliseconds between piece drop steps
-  let stepTimeMs: c_int = 3000;
+  let stepTimeMs: c_int = 1000;
   
   // milliseconds for poll timeout
   let mut pollTimeMs = stepTimeMs;
@@ -486,13 +575,15 @@ fn main_loop<T: GameHandler>(handler: &mut T) {
 fn main() {  
   let restorer = terminal_control::set_terminal_raw_mode();
   
+  // TODO: print the instructions, wait for the user to press Enter to start the game
+  
   // TODO: ask the user if they want standard or double size
   let display = graphics::StandardDisplay;
   display.init();
-  // TODO: print initial piece here
-  flush();
   
-  main_loop(&mut OneBlockGame{display: &display as &Display, block: Block{row: 1, column: 1, color: Red}});
+  let mut game = OnePieceGame{display: &display as &Display, piece: pieceInitial[I as int]};
+  game.init();
+  main_loop(&mut game);
   
   display.close();
   restorer.restore();
