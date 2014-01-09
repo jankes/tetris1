@@ -268,7 +268,9 @@ mod graphics {
   
   impl Display for StandardDisplay {
     fn print_block(&self, block: Block) {
-      // TODO: handle case of not printing blocks with negative row/column
+      if block.row < 1 || block.column < 1 {
+	return;
+      }
       move_cursor(block.row + stdRowOffset, 2 * block.column + stdBorderColumns - 1 + stdColumnOffset);
       set_background_color(block.color as u8);
       print("  ");
@@ -292,7 +294,9 @@ mod graphics {
   
   impl Display for DoubleDisplay {
     fn print_block(&self, block: Block) {
-      // TODO: handle case of not printing blocks with negative row/column
+       if block.row < 1 || block.column < 1 {
+	return;
+      }
       move_cursor(2 * block.row + dblRowOffset, 4 * block.column - 3 + dblBorderColumns + dblColumnOffset);
       set_background_color(block.color as u8);
       print("    ");
