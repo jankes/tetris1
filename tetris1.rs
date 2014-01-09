@@ -226,13 +226,28 @@ mod graphics {
   fn print_borders(rows: i8, cols: i8, rowOffset: i8, columnOffset: i8) {
     reset_graphics();
 
+    // sides
     let mut row = 1;
-    while row <= rows {
+    while row <= rows + 1 {
       move_cursor(row + rowOffset, 1 + columnOffset);
       print("<!");
       move_cursor(row + rowOffset, 3 + cols + columnOffset);
       print("!>");
       row += 1;
+    }
+    
+    // bottom
+    move_cursor(rows + rowOffset + 1, 3 + columnOffset);
+    let mut col = 1;
+    while col <= cols {
+      print("=");
+      col += 1;
+    }
+    move_cursor(rows + rowOffset + 2, 3 + columnOffset);
+    col = 1;
+    while col <= cols - 1 {
+      print("\\/");
+      col += 2;
     }
   }
   
@@ -253,6 +268,7 @@ mod graphics {
   
   impl Display for StandardDisplay {
     fn print_block(&self, block: Block) {
+      // TODO: handle case of not printing blocks with negative row/column
       move_cursor(block.row + stdRowOffset, 2 * block.column + stdBorderColumns - 1 + stdColumnOffset);
       set_background_color(block.color as u8);
       print("  ");
