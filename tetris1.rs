@@ -357,7 +357,7 @@ impl Offset for (i8, i8) {
   }
 }
 
-static pieceInitial: [Piece, ..2] = 
+static pieceInitial: [Piece, ..5] = 
 [
   Piece{ty:     I,
         rotate: 0,
@@ -369,29 +369,31 @@ static pieceInitial: [Piece, ..2] =
   Piece{ty:     J,
         rotate: 0,
         blocks: [Block{row: -1, column: 3, color: Blue},
-                 Block{row: 0, column: 3, color: Blue},
-                 Block{row: 0, column: 4, color: Blue},
-                 Block{row: 0, column: 5, color: Blue}]},
-/*
+                 Block{row:  0, column: 3, color: Blue},
+                 Block{row:  0, column: 4, color: Blue},
+                 Block{row:  0, column: 5, color: Blue}]},
    
-   // L
-   [Block{row: -1, column: 4, color: Cyan},
-    Block{row: -1, column: 5, color: Cyan},
-    Block{row: -1, column: 6, color: Cyan},
-    Block{row: -1, column: 7, color: Cyan}],
+  Piece{ty:     L,
+        rotate: 0,
+        blocks: [Block{row:  0, column: 3, color: White},
+                 Block{row:  0, column: 4, color: White},
+                 Block{row:  0, column: 5, color: White},
+                 Block{row: -1, column: 5, color: White}]},
+
+  Piece{ty:     O,
+        rotate: 0,
+        blocks: [Block{row: -1, column: 5, color: Yellow},
+                 Block{row: -1, column: 6, color: Yellow},
+                 Block{row:  0, column: 5, color: Yellow},
+                 Block{row:  0, column: 6, color: Yellow}]},
    
-   // O
-   [Block{row: -1, column: 4, color: Cyan},
-    Block{row: -1, column: 5, color: Cyan},
-    Block{row: -1, column: 6, color: Cyan},
-    Block{row: -1, column: 7, color: Cyan}],
-   
-   // S
-   [Block{row: -1, column: 4, color: Cyan},
-    Block{row: -1, column: 5, color: Cyan},
-    Block{row: -1, column: 6, color: Cyan},
-    Block{row: -1, column: 7, color: Cyan}],
-    
+  Piece{ty:     S,
+        rotate: 0,
+        blocks: [Block{row:  0, column: 5, color: Green},
+                 Block{row:  0, column: 6, color: Green},
+                 Block{row: -1, column: 6, color: Green},
+                 Block{row: -1, column: 7, color: Green}]},
+/*    
    // T
    [Block{row: -1, column: 4, color: Cyan},
     Block{row: -1, column: 5, color: Cyan},
@@ -412,16 +414,16 @@ static pieceRotate: [[[(i8, i8), ..4], ..4], ..7] =
 [[(-3,1),(-2,0),(-1,-1),(0,-2)], [(3,2),(2,1),(1,0),(0,-1)], [(0,-2),(-1,-1),(-2,0),(-3,1)], [(0,-1),(1,0),(2,1),(3,2)]],
 
 // J
-[[(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)]],
+[[(-1,2),(-2,1),(-1,0),(0,-1)], [(2,0),(1,1),(0,0),(-1,-1)], [(0,-2),(1,-1),(0,0),(-1,1)], [(-1,0),(0,-1),(1,0),(2,1)]],
 
 // L
-[[(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)]],
+[[(-2,0),(-1,-1),(0,-2),(1,-1)], [(1,2),(0,1),(-1,0),(0,-1)], [(1,-1),(0,0),(-1,1),(-2,0)], [(0,-1),(1,0),(2,1),(1,2)]],
 
 // O
 [[(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)]],
 
 // S
-[[(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)]],
+[[(-2,0),(-1,-1),(0,0),(1,-1)], [(1,2),(0,1),(1,0),(0,-1)], [(1,-1),(0,0),(-1,-1),(-2,0)], [(0,-1),(1,0),(0,1),(1,2)]],
 
 // T
 [[(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)]],
@@ -581,7 +583,7 @@ fn main() {
   let display = graphics::StandardDisplay;
   display.init();
   
-  let mut game = OnePieceGame{display: &display as &Display, piece: pieceInitial[I as int]};
+  let mut game = OnePieceGame{display: &display, piece: pieceInitial[S as int]};
   game.init();
   main_loop(&mut game);
   
