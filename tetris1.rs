@@ -340,24 +340,47 @@ struct Piece {
   blocks: [Block, ..4]
 }
 
-trait Offset {
-  fn row(self) -> i8;
-  fn col(self) -> i8;
-}
 
-impl Offset for (i8, i8) {
-  fn row(self) -> i8 {
-    let (row, _) = self;
-    row
-  }
-  
-  fn col(self) -> i8 {
-    let (_, col) = self;
-    col
-  }
-}
+/*
+Pieces Table:
 
-static pieceInitial: [Piece, ..5] = 
+  | | | | |     | |0| | |     | | | | |     | |3| | |
+  | | | | |     | |1| | |     | | | | |     | |2| | |
+I | | | | | --> | |2| | | --> | | | | | --> | |1| | |
+  |0|1|2|3|     | |3| | |     |3|2|1|0|     | |0| | |
+
+  | | | | |     | | | | |     | | | | |     | | | | |
+  | | | | |     | |1|0| |     | | | | |     | |3| | |
+J |0| | | | --> | |2| | | --> |3|2|1| | --> | |2| | |
+  |1|2|3| |     | |3| | |     | | |0| |     |0|1| | |
+
+  | | | | |     | | | | |     | | | | |     | | | | |
+  | | | | |     |0| | | |     | | | | |     |3|2| | |
+L | | |3| | --> |1| | | | --> |2|1|0| | --> | |1| | |
+  |0|1|2| |     |2|3| | |     |3| | | |     | |0| | |
+
+  | | | | |     | | | | |     | | | | |     | | | | |
+  | | | | |     | | | | |     | | | | |     | | | | |
+O |0|1| | | --> |0|1| | | --> |0|1| | | --> |0|1| | |
+  |2|3| | |     |2|3| | |     |2|3| | |     |2|3| | |
+
+  | | | | |     | | | | |     | | | | |     | | | | |
+  | | | | |     |0| | | |     | | | | |     |3| | | |
+S | |2|3| | --> |1|2| | | --> | |1|0| | --> |2|1| | |
+  |0|1| | |     | |3| | |     |3|2| | |     | |0| | |
+
+  | | | | |     | | | | |     | | | | |     | | | | |
+  | | | | |     |0| | | |     | | | | |     | |2| | |
+T | |3| | | --> |1|3| | | --> |2|1|0| | --> |3|1| | |
+  |0|1|2| |     |2| | | |     | |3| | |     | |0| | |
+
+  | | | | |     | | | | |     | | | | |     | | | | |
+  | | | | |     | |0| | |     | | | | |     | |3| | |
+Z |0|1| | | --> |2|1| | | --> |3|2| | | --> |1|2| | |
+  | |2|3| |     |3| | | |     | |1|0| |     |0| | | |
+*/
+
+static pieceInitial: [Piece, ..7] = 
 [
   Piece{ty:     I,
         rotate: 0,
@@ -368,17 +391,17 @@ static pieceInitial: [Piece, ..5] =
   
   Piece{ty:     J,
         rotate: 0,
-        blocks: [Block{row: -1, column: 3, color: Blue},
-                 Block{row:  0, column: 3, color: Blue},
+        blocks: [Block{row: -1, column: 4, color: Blue},
                  Block{row:  0, column: 4, color: Blue},
-                 Block{row:  0, column: 5, color: Blue}]},
+                 Block{row:  0, column: 5, color: Blue},
+                 Block{row:  0, column: 6, color: Blue}]},
    
   Piece{ty:     L,
         rotate: 0,
-        blocks: [Block{row:  0, column: 3, color: White},
-                 Block{row:  0, column: 4, color: White},
+        blocks: [Block{row:  0, column: 4, color: White},
                  Block{row:  0, column: 5, color: White},
-                 Block{row: -1, column: 5, color: White}]},
+                 Block{row:  0, column: 6, color: White},
+                 Block{row: -1, column: 6, color: White}]},
 
   Piece{ty:     O,
         rotate: 0,
@@ -393,63 +416,82 @@ static pieceInitial: [Piece, ..5] =
                  Block{row:  0, column: 6, color: Green},
                  Block{row: -1, column: 6, color: Green},
                  Block{row: -1, column: 7, color: Green}]},
-/*    
-   // T
-   [Block{row: -1, column: 4, color: Cyan},
-    Block{row: -1, column: 5, color: Cyan},
-    Block{row: -1, column: 6, color: Cyan},
-    Block{row: -1, column: 7, color: Cyan}],
-    
-   // Z
-   [Block{row: -1, column: 4, color: Cyan},
-    Block{row: -1, column: 5, color: Cyan},
-    Block{row: -1, column: 6, color: Cyan},
-    Block{row: -1, column: 7, color: Cyan}],
-*/
+  
+  Piece{ty:     T,
+        rotate: 0,
+        blocks: [Block{row:  0, column: 4, color: Magenta},
+                 Block{row:  0, column: 5, color: Magenta},
+                 Block{row:  0, column: 6, color: Magenta},
+                 Block{row: -1, column: 5, color: Magenta}]},
+
+  Piece{ty:     Z,
+        rotate: 0,
+        blocks: [Block{row: -1, column: 4, color: Red},
+                 Block{row: -1, column: 5, color: Red},
+                 Block{row:  0, column: 5, color: Red},
+                 Block{row:  0, column: 6, color: Red}]}
 ];
 
 static pieceRotate: [[[(i8, i8), ..4], ..4], ..7] =
 [
-// I
-[[(-3,1),(-2,0),(-1,-1),(0,-2)], [(3,2),(2,1),(1,0),(0,-1)], [(0,-2),(-1,-1),(-2,0),(-3,1)], [(0,-1),(1,0),(2,1),(3,2)]],
+  // I
+  [[(-3,1),(-2,0),(-1,-1),(0,-2)], [(3,2),(2,1),(1,0),(0,-1)], [(0,-2),(-1,-1),(-2,0),(-3,1)], [(0,-1),(1,0),(2,1),(3,2)]],
 
-// J
-[[(-1,2),(-2,1),(-1,0),(0,-1)], [(2,0),(1,1),(0,0),(-1,-1)], [(0,-2),(1,-1),(0,0),(-1,1)], [(-1,0),(0,-1),(1,0),(2,1)]],
+  // J
+  [[(-1,2),(-2,1),(-1,0),(0,-1)], [(2,0),(1,1),(0,0),(-1,-1)], [(0,-2),(1,-1),(0,0),(-1,1)], [(-1,0),(0,-1),(1,0),(2,1)]],
 
-// L
-[[(-2,0),(-1,-1),(0,-2),(1,-1)], [(1,2),(0,1),(-1,0),(0,-1)], [(1,-1),(0,0),(-1,1),(-2,0)], [(0,-1),(1,0),(2,1),(1,2)]],
+  // L
+  [[(-2,0),(-1,-1),(0,-2),(1,-1)], [(1,2),(0,1),(-1,0),(0,-1)], [(1,-1),(0,0),(-1,1),(-2,0)], [(0,-1),(1,0),(2,1),(1,2)]],
 
-// O
-[[(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)]],
+  // O
+  [[(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)]],
 
-// S
-[[(-2,0),(-1,-1),(0,0),(1,-1)], [(1,2),(0,1),(1,0),(0,-1)], [(1,-1),(0,0),(-1,-1),(-2,0)], [(0,-1),(1,0),(0,1),(1,2)]],
+  // S
+  [[(-2,0),(-1,-1),(0,0),(1,-1)], [(1,2),(0,1),(1,0),(0,-1)], [(1,-1),(0,0),(-1,-1),(-2,0)], [(0,-1),(1,0),(0,1),(1,2)]],
 
-// T
-[[(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)]],
+  // T
+  [[(-2,0),(-1,-1),(0,-2),(0,0)], [(1,2),(0,1),(-1,0),(1,0)], [(1,-1),(0,0),(-1,1),(-1,-1)], [(0,-1),(1,0),(2,1),(0,1)]],
 
-// Z
-[[(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)]]
+  // Z
+  [[(-1,1),(0,0),(-1,-1),(0,-2)], [(2,1),(1,0),(0,1),(-1,0)], [(0,-2),(-1,-1),(0,0),(-1,1)], [(-1,0),(0,1),(1,0),(2,1)]]
 ];
 
 fn transform_blocks(clockwise: bool, blocks: &[Block, ..4], transform: [(i8, i8), ..4]) -> [Block, ..4] {
+  
+  trait Offset {
+    fn row(self) -> i8;
+    fn col(self) -> i8;
+  }
+
+  impl Offset for (i8, i8) {
+    fn row(self) -> i8 {
+      let (row, _) = self;
+      row
+    }
+    
+    fn col(self) -> i8 {
+      let (_, col) = self;
+      col
+    }
+  }
+  
   let s = if clockwise { 1i8 } else { -1i8 };
   [
-  Block{row:    blocks[0].row    + s * transform[0].row(),
-        column: blocks[0].column + s * transform[0].col(),
-        color:  blocks[0].color},
+    Block{row:    blocks[0].row    + s * transform[0].row(),
+          column: blocks[0].column + s * transform[0].col(),
+          color:  blocks[0].color},
   
-  Block{row:    blocks[1].row    + s * transform[1].row(),
-        column: blocks[1].column + s * transform[1].col(),
-        color: blocks[1].color},
+    Block{row:    blocks[1].row    + s * transform[1].row(),
+          column: blocks[1].column + s * transform[1].col(),
+          color: blocks[1].color},
   
-  Block{row:    blocks[2].row    + s * transform[2].row(),
-        column: blocks[2].column + s * transform[2].col(),
-        color:  blocks[2].color},
+    Block{row:    blocks[2].row    + s * transform[2].row(),
+          column: blocks[2].column + s * transform[2].col(),
+          color:  blocks[2].color},
   
-  Block{row:    blocks[3].row    + s * transform[3].row(),
-        column: blocks[3].column + s * transform[3].col(),
-        color:  blocks[3].color}
+    Block{row:    blocks[3].row    + s * transform[3].row(),
+          column: blocks[3].column + s * transform[3].col(),
+          color:  blocks[3].color}
   ]
 }
 
@@ -583,7 +625,7 @@ fn main() {
   let display = graphics::StandardDisplay;
   display.init();
   
-  let mut game = OnePieceGame{display: &display, piece: pieceInitial[S as int]};
+  let mut game = OnePieceGame{display: &display, piece: pieceInitial[Z as int]};
   game.init();
   main_loop(&mut game);
   
