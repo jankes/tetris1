@@ -3,8 +3,7 @@ use extra::time;
 use std::libc::c_int;
 
 use graphics::Display;
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+use pieces::{Block, Piece, Black, Z};
 
 mod terminal_control {
   use std::libc::c_int;
@@ -109,8 +108,6 @@ mod terminal_control {
   */
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 mod input_reader {
   use std::libc::{c_int, c_short, c_long};
   use std::cast::transmute;
@@ -189,11 +186,9 @@ mod input_reader {
   }  
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 mod graphics {
   use std::io::stdio::flush;
-  use super::Block;
+  use pieces::Block;
   
   fn csi() {
     print!("{}[", '\x1B');
@@ -318,146 +313,150 @@ mod graphics {
   */
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+mod pieces {
+  pub enum Color {
+    Black = 0, Red, Green, Yellow, Blue, Magenta, Cyan, White
+  }
 
-enum Color {
-  Black = 0, Red, Green, Yellow, Blue, Magenta, Cyan, White
-}
+  pub struct Block {
+    row: i8,
+    column: i8,
+    color: Color
+  }
 
-struct Block {
-  row: i8,
-  column: i8,
-  color: Color
-}
+  pub enum PieceType {
+    I = 0, J, L, O, S, T, Z
+  }
 
-enum PieceType {
-  I = 0, J, L, O, S, T, Z
-}
-
-struct Piece {
-  ty: PieceType,
-  rotate: u8,
-  blocks: [Block, ..4]
-}
+  pub struct Piece {
+    ty: PieceType,
+    rotate: u8,
+    blocks: [Block, ..4]
+  }
 
 
-/*
-Pieces Table:
+  /*
+  Pieces Table:
 
-  | | | | |     | |0| | |     | | | | |     | |3| | |
-  | | | | |     | |1| | |     | | | | |     | |2| | |
-I | | | | | --> | |2| | | --> | | | | | --> | |1| | |
-  |0|1|2|3|     | |3| | |     |3|2|1|0|     | |0| | |
+    | | | | |     | |0| | |     | | | | |     | |3| | |
+    | | | | |     | |1| | |     | | | | |     | |2| | |
+  I | | | | | --> | |2| | | --> | | | | | --> | |1| | |
+    |0|1|2|3|     | |3| | |     |3|2|1|0|     | |0| | |
 
-  | | | | |     | | | | |     | | | | |     | | | | |
-  | | | | |     | |1|0| |     | | | | |     | |3| | |
-J |0| | | | --> | |2| | | --> |3|2|1| | --> | |2| | |
-  |1|2|3| |     | |3| | |     | | |0| |     |0|1| | |
+    | | | | |     | | | | |     | | | | |     | | | | |
+    | | | | |     | |1|0| |     | | | | |     | |3| | |
+  J |0| | | | --> | |2| | | --> |3|2|1| | --> | |2| | |
+    |1|2|3| |     | |3| | |     | | |0| |     |0|1| | |
 
-  | | | | |     | | | | |     | | | | |     | | | | |
-  | | | | |     |0| | | |     | | | | |     |3|2| | |
-L | | |3| | --> |1| | | | --> |2|1|0| | --> | |1| | |
-  |0|1|2| |     |2|3| | |     |3| | | |     | |0| | |
+    | | | | |     | | | | |     | | | | |     | | | | |
+    | | | | |     |0| | | |     | | | | |     |3|2| | |
+  L | | |3| | --> |1| | | | --> |2|1|0| | --> | |1| | |
+    |0|1|2| |     |2|3| | |     |3| | | |     | |0| | |
 
-  | | | | |     | | | | |     | | | | |     | | | | |
-  | | | | |     | | | | |     | | | | |     | | | | |
-O |0|1| | | --> |0|1| | | --> |0|1| | | --> |0|1| | |
-  |2|3| | |     |2|3| | |     |2|3| | |     |2|3| | |
+    | | | | |     | | | | |     | | | | |     | | | | |
+    | | | | |     | | | | |     | | | | |     | | | | |
+  O |0|1| | | --> |0|1| | | --> |0|1| | | --> |0|1| | |
+    |2|3| | |     |2|3| | |     |2|3| | |     |2|3| | |
 
-  | | | | |     | | | | |     | | | | |     | | | | |
-  | | | | |     |0| | | |     | | | | |     |3| | | |
-S | |2|3| | --> |1|2| | | --> | |1|0| | --> |2|1| | |
-  |0|1| | |     | |3| | |     |3|2| | |     | |0| | |
+    | | | | |     | | | | |     | | | | |     | | | | |
+    | | | | |     |0| | | |     | | | | |     |3| | | |
+  S | |2|3| | --> |1|2| | | --> | |1|0| | --> |2|1| | |
+    |0|1| | |     | |3| | |     |3|2| | |     | |0| | |
 
-  | | | | |     | | | | |     | | | | |     | | | | |
-  | | | | |     |0| | | |     | | | | |     | |2| | |
-T | |3| | | --> |1|3| | | --> |2|1|0| | --> |3|1| | |
-  |0|1|2| |     |2| | | |     | |3| | |     | |0| | |
+    | | | | |     | | | | |     | | | | |     | | | | |
+    | | | | |     |0| | | |     | | | | |     | |2| | |
+  T | |3| | | --> |1|3| | | --> |2|1|0| | --> |3|1| | |
+    |0|1|2| |     |2| | | |     | |3| | |     | |0| | |
 
-  | | | | |     | | | | |     | | | | |     | | | | |
-  | | | | |     | |0| | |     | | | | |     | |3| | |
-Z |0|1| | | --> |2|1| | | --> |3|2| | | --> |1|2| | |
-  | |2|3| |     |3| | | |     | |1|0| |     |0| | | |
-*/
+    | | | | |     | | | | |     | | | | |     | | | | |
+    | | | | |     | |0| | |     | | | | |     | |3| | |
+  Z |0|1| | | --> |2|1| | | --> |3|2| | | --> |1|2| | |
+    | |2|3| |     |3| | | |     | |1|0| |     |0| | | |
+  */
 
-static pieceInitial: [Piece, ..7] = 
-[
-  Piece{ty:     I,
-        rotate: 0,
-        blocks: [Block{row: 0, column: 4, color: Cyan},
-                 Block{row: 0, column: 5, color: Cyan},
-                 Block{row: 0, column: 6, color: Cyan},
-                 Block{row: 0, column: 7, color: Cyan}]},
+  static pieceInitial: [Piece, ..7] = 
+  [
+    Piece{ty:     I,
+	  rotate: 0,
+	  blocks: [Block{row: 0, column: 4, color: Cyan},
+		  Block{row: 0, column: 5, color: Cyan},
+		  Block{row: 0, column: 6, color: Cyan},
+		  Block{row: 0, column: 7, color: Cyan}]},
+    
+    Piece{ty:     J,
+	  rotate: 0,
+	  blocks: [Block{row: -1, column: 4, color: Blue},
+		  Block{row:  0, column: 4, color: Blue},
+		  Block{row:  0, column: 5, color: Blue},
+		  Block{row:  0, column: 6, color: Blue}]},
+    
+    Piece{ty:     L,
+	  rotate: 0,
+	  blocks: [Block{row:  0, column: 4, color: White},
+		  Block{row:  0, column: 5, color: White},
+		  Block{row:  0, column: 6, color: White},
+		  Block{row: -1, column: 6, color: White}]},
+
+    Piece{ty:     O,
+	  rotate: 0,
+	  blocks: [Block{row: -1, column: 5, color: Yellow},
+		  Block{row: -1, column: 6, color: Yellow},
+		  Block{row:  0, column: 5, color: Yellow},
+		  Block{row:  0, column: 6, color: Yellow}]},
+    
+    Piece{ty:     S,
+	  rotate: 0,
+	  blocks: [Block{row:  0, column: 5, color: Green},
+		  Block{row:  0, column: 6, color: Green},
+		  Block{row: -1, column: 6, color: Green},
+		  Block{row: -1, column: 7, color: Green}]},
+    
+    Piece{ty:     T,
+	  rotate: 0,
+	  blocks: [Block{row:  0, column: 4, color: Magenta},
+		  Block{row:  0, column: 5, color: Magenta},
+		  Block{row:  0, column: 6, color: Magenta},
+		  Block{row: -1, column: 5, color: Magenta}]},
+
+    Piece{ty:     Z,
+	  rotate: 0,
+	  blocks: [Block{row: -1, column: 4, color: Red},
+		  Block{row: -1, column: 5, color: Red},
+		  Block{row:  0, column: 5, color: Red},
+		  Block{row:  0, column: 6, color: Red}]}
+  ];
+
+  pub fn new(ty: PieceType) -> Piece {
+    match ty {
+      I => pieceInitial[I as int],
+      _ => pieceInitial[T as int]
+    }
+  }
   
-  Piece{ty:     J,
-        rotate: 0,
-        blocks: [Block{row: -1, column: 4, color: Blue},
-                 Block{row:  0, column: 4, color: Blue},
-                 Block{row:  0, column: 5, color: Blue},
-                 Block{row:  0, column: 6, color: Blue}]},
-   
-  Piece{ty:     L,
-        rotate: 0,
-        blocks: [Block{row:  0, column: 4, color: White},
-                 Block{row:  0, column: 5, color: White},
-                 Block{row:  0, column: 6, color: White},
-                 Block{row: -1, column: 6, color: White}]},
+  static pieceRotate: [[[(i8, i8), ..4], ..4], ..7] =
+  [
+    // I
+    [[(-3,1),(-2,0),(-1,-1),(0,-2)], [(3,2),(2,1),(1,0),(0,-1)], [(0,-2),(-1,-1),(-2,0),(-3,1)], [(0,-1),(1,0),(2,1),(3,2)]],
 
-  Piece{ty:     O,
-        rotate: 0,
-        blocks: [Block{row: -1, column: 5, color: Yellow},
-                 Block{row: -1, column: 6, color: Yellow},
-                 Block{row:  0, column: 5, color: Yellow},
-                 Block{row:  0, column: 6, color: Yellow}]},
-   
-  Piece{ty:     S,
-        rotate: 0,
-        blocks: [Block{row:  0, column: 5, color: Green},
-                 Block{row:  0, column: 6, color: Green},
-                 Block{row: -1, column: 6, color: Green},
-                 Block{row: -1, column: 7, color: Green}]},
-  
-  Piece{ty:     T,
-        rotate: 0,
-        blocks: [Block{row:  0, column: 4, color: Magenta},
-                 Block{row:  0, column: 5, color: Magenta},
-                 Block{row:  0, column: 6, color: Magenta},
-                 Block{row: -1, column: 5, color: Magenta}]},
+    // J
+    [[(-1,2),(-2,1),(-1,0),(0,-1)], [(2,0),(1,1),(0,0),(-1,-1)], [(0,-2),(1,-1),(0,0),(-1,1)], [(-1,0),(0,-1),(1,0),(2,1)]],
 
-  Piece{ty:     Z,
-        rotate: 0,
-        blocks: [Block{row: -1, column: 4, color: Red},
-                 Block{row: -1, column: 5, color: Red},
-                 Block{row:  0, column: 5, color: Red},
-                 Block{row:  0, column: 6, color: Red}]}
-];
+    // L
+    [[(-2,0),(-1,-1),(0,-2),(1,-1)], [(1,2),(0,1),(-1,0),(0,-1)], [(1,-1),(0,0),(-1,1),(-2,0)], [(0,-1),(1,0),(2,1),(1,2)]],
 
-static pieceRotate: [[[(i8, i8), ..4], ..4], ..7] =
-[
-  // I
-  [[(-3,1),(-2,0),(-1,-1),(0,-2)], [(3,2),(2,1),(1,0),(0,-1)], [(0,-2),(-1,-1),(-2,0),(-3,1)], [(0,-1),(1,0),(2,1),(3,2)]],
+    // O
+    [[(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)]],
 
-  // J
-  [[(-1,2),(-2,1),(-1,0),(0,-1)], [(2,0),(1,1),(0,0),(-1,-1)], [(0,-2),(1,-1),(0,0),(-1,1)], [(-1,0),(0,-1),(1,0),(2,1)]],
+    // S
+    [[(-2,0),(-1,-1),(0,0),(1,-1)], [(1,2),(0,1),(1,0),(0,-1)], [(1,-1),(0,0),(-1,-1),(-2,0)], [(0,-1),(1,0),(0,1),(1,2)]],
 
-  // L
-  [[(-2,0),(-1,-1),(0,-2),(1,-1)], [(1,2),(0,1),(-1,0),(0,-1)], [(1,-1),(0,0),(-1,1),(-2,0)], [(0,-1),(1,0),(2,1),(1,2)]],
+    // T
+    [[(-2,0),(-1,-1),(0,-2),(0,0)], [(1,2),(0,1),(-1,0),(1,0)], [(1,-1),(0,0),(-1,1),(-1,-1)], [(0,-1),(1,0),(2,1),(0,1)]],
 
-  // O
-  [[(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)], [(0,0),(0,0),(0,0),(0,0)]],
+    // Z
+    [[(-1,1),(0,0),(-1,-1),(0,-2)], [(2,1),(1,0),(0,1),(-1,0)], [(0,-2),(-1,-1),(0,0),(-1,1)], [(-1,0),(0,1),(1,0),(2,1)]]
+  ];
 
-  // S
-  [[(-2,0),(-1,-1),(0,0),(1,-1)], [(1,2),(0,1),(1,0),(0,-1)], [(1,-1),(0,0),(-1,-1),(-2,0)], [(0,-1),(1,0),(0,1),(1,2)]],
-
-  // T
-  [[(-2,0),(-1,-1),(0,-2),(0,0)], [(1,2),(0,1),(-1,0),(1,0)], [(1,-1),(0,0),(-1,1),(-1,-1)], [(0,-1),(1,0),(2,1),(0,1)]],
-
-  // Z
-  [[(-1,1),(0,0),(-1,-1),(0,-2)], [(2,1),(1,0),(0,1),(-1,0)], [(0,-2),(-1,-1),(0,0),(-1,1)], [(-1,0),(0,1),(1,0),(2,1)]]
-];
-
-fn transform_blocks(clockwise: bool, blocks: &[Block, ..4], transform: [(i8, i8), ..4]) -> [Block, ..4] {
-  
   trait Offset {
     fn row(self) -> i8;
     fn col(self) -> i8;
@@ -475,42 +474,43 @@ fn transform_blocks(clockwise: bool, blocks: &[Block, ..4], transform: [(i8, i8)
     }
   }
   
-  let s = if clockwise { 1i8 } else { -1i8 };
-  [
-    Block{row:    blocks[0].row    + s * transform[0].row(),
-          column: blocks[0].column + s * transform[0].col(),
-          color:  blocks[0].color},
-  
-    Block{row:    blocks[1].row    + s * transform[1].row(),
-          column: blocks[1].column + s * transform[1].col(),
-          color: blocks[1].color},
-  
-    Block{row:    blocks[2].row    + s * transform[2].row(),
-          column: blocks[2].column + s * transform[2].col(),
-          color:  blocks[2].color},
-  
-    Block{row:    blocks[3].row    + s * transform[3].row(),
-          column: blocks[3].column + s * transform[3].col(),
-          color:  blocks[3].color}
-  ]
-}
+  fn transform_blocks(clockwise: bool, blocks: &[Block, ..4], transform: [(i8, i8), ..4]) -> [Block, ..4] {
+    let s = if clockwise { 1i8 } else { -1i8 };
+    [
+      Block{row:    blocks[0].row    + s * transform[0].row(),
+	    column: blocks[0].column + s * transform[0].col(),
+	    color:  blocks[0].color},
+    
+      Block{row:    blocks[1].row    + s * transform[1].row(),
+	    column: blocks[1].column + s * transform[1].col(),
+	    color: blocks[1].color},
+    
+      Block{row:    blocks[2].row    + s * transform[2].row(),
+	    column: blocks[2].column + s * transform[2].col(),
+	    color:  blocks[2].color},
+    
+      Block{row:    blocks[3].row    + s * transform[3].row(),
+	    column: blocks[3].column + s * transform[3].col(),
+	    color:  blocks[3].color}
+    ]
+  }
 
-fn rotate_clockwise(piece: &Piece) -> Piece {
-  Piece {
-    ty: piece.ty,
-    rotate: (piece.rotate + 1) % 4,
-    blocks: transform_blocks(true, &piece.blocks, pieceRotate[piece.ty as int][piece.rotate])
+  pub fn rotate_clockwise(piece: &Piece) -> Piece {
+    Piece {
+      ty: piece.ty,
+      rotate: (piece.rotate + 1) % 4,
+      blocks: transform_blocks(true, &piece.blocks, pieceRotate[piece.ty as int][piece.rotate])
+    }
+  }
+
+  pub fn rotate_counter_clockwise(piece: &Piece) -> Piece {
+    Piece {
+      ty: piece.ty,
+      rotate: (piece.rotate + 3) % 4,
+      blocks: transform_blocks(false, &piece.blocks, pieceRotate[piece.ty as int][(piece.rotate + 3) % 4])
+    }
   }
 }
-
-fn rotate_counter_clockwise(piece: &Piece) -> Piece {
-  Piece {
-    ty: piece.ty,
-    rotate: (piece.rotate + 3) % 4,
-    blocks: transform_blocks(false, &piece.blocks, pieceRotate[piece.ty as int][(piece.rotate + 3) % 4])
-  }
-}
-
 
 trait GameHandler {
   fn init(&mut self);
@@ -552,9 +552,9 @@ impl<'a> OnePieceGame<'a> {
     self.erase();
     
     if clockwise {
-      self.piece = rotate_clockwise(&self.piece);
+      self.piece = pieces::rotate_clockwise(&self.piece);
     } else { 
-      self.piece = rotate_counter_clockwise(&self.piece);
+      self.piece = pieces::rotate_counter_clockwise(&self.piece);
     }
     
     self.print();
@@ -616,7 +616,7 @@ fn main_loop<T: GameHandler>(handler: &mut T) {
   }
 }
 
-fn main() {  
+fn main() {
   let restorer = terminal_control::set_terminal_raw_mode();
   
   // TODO: print the instructions, wait for the user to press Enter to start the game
@@ -625,7 +625,7 @@ fn main() {
   let display = graphics::StandardDisplay;
   display.init();
   
-  let mut game = OnePieceGame{display: &display, piece: pieceInitial[Z as int]};
+  let mut game = OnePieceGame{display: &display, piece: pieces::new(Z)};
   game.init();
   main_loop(&mut game);
   
