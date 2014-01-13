@@ -427,10 +427,7 @@ mod pieces {
   ];
 
   pub fn new(ty: PieceType) -> Piece {
-    match ty {
-      I => pieceInitial[I as int],
-      _ => pieceInitial[T as int]
-    }
+    pieceInitial[ty as int]
   }
   
   static pieceRotate: [[[(i8, i8), ..4], ..4], ..7] =
@@ -510,6 +507,50 @@ mod pieces {
       blocks: transform_blocks(false, &piece.blocks, pieceRotate[piece.ty as int][(piece.rotate + 3) % 4])
     }
   }
+  
+  pub fn translate(piece: &Piece, rowOffset: i8, columnOffset: i8) -> Piece {
+    Piece {
+      ty: piece.ty,
+      rotate: piece.rotate,
+      blocks: [Block{row:    piece.blocks[0].row    + rowOffset,
+                     column: piece.blocks[0].column + columnOffset,
+                     color:  piece.blocks[0].color},
+                     
+               Block{row:    piece.blocks[1].row    + rowOffset,
+                     column: piece.blocks[1].column + columnOffset,
+                     color:  piece.blocks[1].color},
+                     
+               Block{row:    piece.blocks[2].row    + rowOffset,
+                     column: piece.blocks[2].column + columnOffset,
+                     color:  piece.blocks[2].color},
+               
+               Block{row:    piece.blocks[3].row + rowOffset,
+                     column: piece.blocks[3].column + columnOffset,
+                     color:  piece.blocks[3].color}]
+    }
+  }
+}
+
+struct SetBlocks {
+  blocks: [Option<Block>, ..200]
+}
+
+impl SetBlocks {  
+  fn has_block(&self, row: i8, col: i8) -> bool {
+    false
+  }
+  
+  fn get(&self, row: i8, col: i8) -> Option<Block> {
+    None
+  }
+  
+  fn remove(&mut self, row: i8, col: i8) {
+  
+  }
+  
+  fn set(&mut self, block: Block) {
+  
+  }
 }
 
 trait GameHandler {
@@ -518,12 +559,40 @@ trait GameHandler {
   fn handle_input(&mut self, input: input_reader::ReadResult);
 }
 
-struct OnePieceGame<'a> {
+struct TetrisGame<'a> {
   display: &'a Display,
-  piece: Piece
+  piece: Piece,
+  //nextPiece: Piece
+  //blocks: SetBlocks
+  // block getter trait impl
 }
 
-impl<'a> OnePieceGame<'a> {
+impl<'a> TetrisGame<'a> {
+  
+  // TODO: fn new(block getter impl)
+  
+  fn collides_with_set_blocks(&self, piece: &Piece) -> bool {
+    false
+  }
+  
+  fn in_bounds_bottom_row(piece: &Piece) -> bool {
+    for block in piece.blocks.iter() {
+      if block.row > 20 {
+	return false;
+      }
+    }
+    return true;
+  }
+  
+  fn in_bounds_cols(piece: &Piece) -> bool {
+    for block in piece.blocks.iter() {
+      if block.column < 1 || block.column > 10 {
+	return false;
+      }
+    }
+    return true;
+  }
+  
   fn erase(&self) {
     for block in self.piece.blocks.iter() {
       self.display.print_block(Block{row: block.row, column: block.column, color: Black}); 
@@ -537,37 +606,62 @@ impl<'a> OnePieceGame<'a> {
     self.display.flush();
   }
   
-  fn translate(&mut self, rowOffset: i8, columnOffset: i8) {
+  fn translate_cols(&mut self, columnOffset: i8) {
+    let translated = pieces::translate(&self.piece, 0, columnOffset);
+    
+    if !TetrisGame::in_bounds_cols(&translated) || self.collides_with_set_blocks(&translated) {
+      return;
+    }
+    
     self.erase();
     
-    for block in self.piece.blocks.mut_iter() {
-      block.row += rowOffset;
-      block.column += columnOffset;
-    }
+    self.piece = translated;
     
     self.print();
   }
   
   fn rotate(&mut self, clockwise: bool) {
+    let rotated = if clockwise {
+      pieces::rotate_clockwise(&self.piece)
+    } else {
+      pieces::rotate_counter_clockwise(&self.piece)
+    };
+    
+    if !TetrisGame::in_bounds_cols(&rotated) || self.collides_with_set_blocks(&rotated) {
+      return;
+    }
+    
     self.erase();
     
-    if clockwise {
-      self.piece = pieces::rotate_clockwise(&self.piece);
-    } else { 
-      self.piece = pieces::rotate_counter_clockwise(&self.piece);
-    }
+    self.piece = rotated;
     
     self.print();
   }
 }
 
-impl<'a> GameHandler for OnePieceGame<'a> {
+impl<'a> GameHandler for TetrisGame<'a> {
   fn init(&mut self) {
     
   }
   
   fn handle_step(&mut self) {    
-    self.translate(1, 0);
+    // TODO: lots of logic here:
+    // check state - piece dropping, erase, drop set blocks, ...
+    // handle different states
+    
+    let translated = pieces::translate(&self.piece, 1, 0);
+    
+    if !TetrisGame::in_bounds_bottom_row(&translated) || self.collides_with_set_blocks(&translated) {
+      // place the piece in the set blocks, get next piece, erase complete rows, next step drops down set blocks
+      
+      return;
+    } 
+    
+    self.erase();
+    
+    self.piece = translated;
+    
+    self.print();
   }
   
   fn handle_input(&mut self, input: input_reader::ReadResult) {
@@ -575,8 +669,8 @@ impl<'a> GameHandler for OnePieceGame<'a> {
     match input {
       Up    => self.rotate(true),
       Down  => self.rotate(false),
-      Right => self.translate(0, 1),
-      Left  => self.translate(0, -1),
+      Right => self.translate_cols(1),
+      Left  => self.translate_cols(-1),
       _     => fail!("unknown direction")
     }
   }
@@ -625,10 +719,11 @@ fn main() {
   let display = graphics::StandardDisplay;
   display.init();
   
-  let mut game = OnePieceGame{display: &display, piece: pieces::new(Z)};
+  let mut game = TetrisGame{display: &display, piece: pieces::new(Z)};
   game.init();
   main_loop(&mut game);
   
   display.close();
   restorer.restore();
+
 }
