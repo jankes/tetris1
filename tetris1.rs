@@ -4,6 +4,7 @@ use std::libc::c_int;
 
 use graphics::Display;
 use pieces::{Block, Piece, Black, Z};
+use set_blocks::SetBlocks;
 
 mod terminal_control {
   use std::libc::c_int;
@@ -531,25 +532,42 @@ mod pieces {
   }
 }
 
-struct SetBlocks {
-  blocks: [Option<Block>, ..200]
-}
+mod set_blocks {
+  use pieces::Block;
+  
+  pub trait SetBlocks {
+    fn has_block(&self, row: i8, col: i8) -> bool;  
+    fn get(&self, row: i8, col: i8) -> Option<Block>;
+    fn remove(&mut self, row: i8, col: i8);
+    fn set(&mut self, block: Block);
+  }
 
-impl SetBlocks {  
-  fn has_block(&self, row: i8, col: i8) -> bool {
-    false
+  fn index(row: i8, col: i8) -> int {
+    return 10 * ((row as int) - 1) + (col as int) - 1;
   }
-  
-  fn get(&self, row: i8, col: i8) -> Option<Block> {
-    None
-  }
-  
-  fn remove(&mut self, row: i8, col: i8) {
-  
-  }
-  
-  fn set(&mut self, block: Block) {
-  
+
+  impl SetBlocks for [Option<Block>, ..200] {
+    fn has_block(&self, row: i8, col: i8) -> bool {
+      if row < 1 || row > 20 || col < 1 || col > 20 {
+	return false;
+      }
+      return self[index(row, col)].is_some();
+    }
+    
+    fn get(&self, row: i8, col: i8) -> Option<Block> {
+      None
+    }
+    
+    fn remove(&mut self, row: i8, col: i8) {
+    
+    }
+    
+    fn set(&mut self, block: Block) {
+      if block.row < 1 || block.row > 20 || block.column < 1 || block.column > 10 {
+	fail!("can't add out of bounds block to set blocks");
+      }
+      self[index(block.row, block.column)] = Some(block);
+    }
   }
 }
 
@@ -563,16 +581,21 @@ struct TetrisGame<'a> {
   display: &'a Display,
   piece: Piece,
   //nextPiece: Piece
-  //blocks: SetBlocks
-  // block getter trait impl
+  setBlocks: [Option<Block>, ..200]
+  // piece getter trait impl
 }
 
 impl<'a> TetrisGame<'a> {
   
-  // TODO: fn new(block getter impl)
+  // TODO: fn new(piece getter impl)
   
   fn collides_with_set_blocks(&self, piece: &Piece) -> bool {
-    false
+    for block in piece.blocks.iter() {
+      if self.setBlocks.has_block(block.row, block.column) {
+	return true;
+      }
+    }
+    return false;
   }
   
   fn in_bounds_bottom_row(piece: &Piece) -> bool {
@@ -593,13 +616,19 @@ impl<'a> TetrisGame<'a> {
     return true;
   }
   
-  fn erase(&self) {
+  fn set_piece(&mut self) {
+    for block in self.piece.blocks.iter() {
+      self.setBlocks.set(*block);
+    }
+  }
+  
+  fn erase_piece(&self) {
     for block in self.piece.blocks.iter() {
       self.display.print_block(Block{row: block.row, column: block.column, color: Black}); 
     }
   }
   
-  fn print(&self) {
+  fn print_piece(&self) {
     for block in self.piece.blocks.iter() {
       self.display.print_block(*block);
     }
@@ -613,11 +642,11 @@ impl<'a> TetrisGame<'a> {
       return;
     }
     
-    self.erase();
+    self.erase_piece();
     
     self.piece = translated;
     
-    self.print();
+    self.print_piece();
   }
   
   fn rotate(&mut self, clockwise: bool) {
@@ -631,11 +660,11 @@ impl<'a> TetrisGame<'a> {
       return;
     }
     
-    self.erase();
+    self.erase_piece();
     
     self.piece = rotated;
     
-    self.print();
+    self.print_piece();
   }
 }
 
@@ -652,16 +681,20 @@ impl<'a> GameHandler for TetrisGame<'a> {
     let translated = pieces::translate(&self.piece, 1, 0);
     
     if !TetrisGame::in_bounds_bottom_row(&translated) || self.collides_with_set_blocks(&translated) {
+      self.set_piece();
+      
+      self.piece = pieces::new(Z);
+      
       // place the piece in the set blocks, get next piece, erase complete rows, next step drops down set blocks
       
       return;
     } 
     
-    self.erase();
+    self.erase_piece();
     
     self.piece = translated;
     
-    self.print();
+    self.print_piece();
   }
   
   fn handle_input(&mut self, input: input_reader::ReadResult) {
@@ -680,7 +713,7 @@ fn main_loop<T: GameHandler>(handler: &mut T) {
   use input_reader::{poll_stdin, read_stdin, Other, PollReady, PollTimeout};
   
   // milliseconds between piece drop steps
-  let stepTimeMs: c_int = 1000;
+  let stepTimeMs: c_int = 500;
   
   // milliseconds for poll timeout
   let mut pollTimeMs = stepTimeMs;
@@ -719,7 +752,7 @@ fn main() {
   let display = graphics::StandardDisplay;
   display.init();
   
-  let mut game = TetrisGame{display: &display, piece: pieces::new(Z)};
+  let mut game = TetrisGame{display: &display, piece: pieces::new(Z), setBlocks: [None, ..200]};
   game.init();
   main_loop(&mut game);
   
