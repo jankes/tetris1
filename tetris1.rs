@@ -3,7 +3,7 @@ use extra::time;
 use std::libc::c_int;
 
 use graphics::Display;
-use pieces::{Block, Piece, Black, Z};
+use pieces::{Block, Piece, Black, I};
 use set_blocks::SetBlocks;
 
 mod terminal_control {
@@ -549,7 +549,7 @@ mod set_blocks {
 
   impl SetBlocks for [Option<Block>, ..200] {
     fn has_block(&self, row: i8, col: i8) -> bool {
-      if row < 1 || row > 20 || col < 1 || col > 20 {
+      if row < 1 || row > 20 || col < 1 || col > 10 {
 	return false;
       }
       return self[index(row, col)].is_some();
@@ -725,7 +725,7 @@ impl<'a> GameHandler for TetrisGame<'a> {
       self.set_piece();
       
       // TODO: here get the next piece, update its display
-      self.piece = pieces::new(Z);
+      self.piece = pieces::new(I);
       
       self.erase_set_rows();
       
@@ -794,7 +794,7 @@ fn main() {
   let display = graphics::StandardDisplay;
   display.init();
   
-  let mut game = TetrisGame{display: &display, piece: pieces::new(Z), setBlocks: [None, ..200]};
+  let mut game = TetrisGame{display: &display, piece: pieces::new(I), setBlocks: [None, ..200]};
   game.init();
   main_loop(&mut game);
   
