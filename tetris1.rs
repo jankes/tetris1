@@ -617,6 +617,11 @@ impl<'a> TetrisGame<'a> {
     return true;
   }
   
+  fn can_move_rows(&self, piece: &Piece, rowOffset: i8) -> bool {
+    let moved =  pieces::translate(piece, rowOffset, 0);
+    return TetrisGame::in_bounds_bottom_row(&moved) && !self.collides_with_set_blocks(&moved);
+  }
+  
   fn set_piece(&mut self) {
     for block in self.piece.blocks.iter() {
       self.setBlocks.set(*block);
@@ -642,6 +647,19 @@ impl<'a> TetrisGame<'a> {
     self.piece = *next;
     
     self.print_piece();
+  }
+  
+  fn quick_drop(&mut self) {
+    if !self.can_move_rows(&self.piece, 1) {
+      return;
+    }
+    
+    let mut translated = pieces::translate(&self.piece, 1, 0);
+    while self.can_move_rows(&translated, 1) {
+      translated = pieces::translate(&translated, 1, 0);
+    }
+    
+    self.update_piece(&translated);
   }
   
   fn translate_cols(&mut self, columnOffset: i8) {
@@ -703,9 +721,7 @@ impl<'a> GameHandler for TetrisGame<'a> {
     // check state - piece dropping, erase, drop set blocks, ...
     // handle different states
     
-    let translated = pieces::translate(&self.piece, 1, 0);
-    
-    if !TetrisGame::in_bounds_bottom_row(&translated) || self.collides_with_set_blocks(&translated) {
+    if !self.can_move_rows(&self.piece, 1) {
       self.set_piece();
       
       // TODO: here get the next piece, update its display
@@ -717,17 +733,17 @@ impl<'a> GameHandler for TetrisGame<'a> {
       
       // place the piece in the set blocks, get next piece, erase complete rows, next step drops down set blocks
       
-      return;
-    } 
-    
-    self.update_piece(&translated);
+    } else {
+      let translated = pieces::translate(&self.piece, 1, 0);
+      self.update_piece(&translated);
+    }
   }
   
   fn handle_input(&mut self, input: input_reader::ReadResult) {
     use input_reader::{Up, Down, Right, Left};
     match input {
       Up    => self.rotate(true),
-      Down  => self.rotate(false),
+      Down  => self.quick_drop(),
       Right => self.translate_cols(1),
       Left  => self.translate_cols(-1),
       _     => fail!("unknown direction")
@@ -739,7 +755,7 @@ fn main_loop<T: GameHandler>(handler: &mut T) {
   use input_reader::{poll_stdin, read_stdin, Other, PollReady, PollTimeout};
   
   // milliseconds between piece drop steps
-  let stepTimeMs: c_int = 500;
+  let stepTimeMs: c_int = 1000;
   
   // milliseconds for poll timeout
   let mut pollTimeMs = stepTimeMs;
