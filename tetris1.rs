@@ -315,6 +315,7 @@ mod graphics {
 }
 
 mod pieces {
+  #[deriving(Eq)]
   pub enum Color {
     Black = 0, Red, Green, Yellow, Blue, Magenta, Cyan, White
   }
@@ -578,8 +579,13 @@ trait GameHandler {
   fn handle_input(&mut self, input: input_reader::ReadResult);
 }
 
+enum State {
+  Fall = 0, Clear
+}
+
 struct TetrisGame<'a> {
   display: &'a Display,
+  state: State,
   piece: Piece,
   //nextPiece: Piece
   setBlocks: [Option<Block>, ..200]
@@ -621,16 +627,58 @@ impl<'a> TetrisGame<'a> {
     let moved =  pieces::translate(piece, rowOffset, 0);
     return TetrisGame::in_bounds_bottom_row(&moved) && !self.collides_with_set_blocks(&moved);
   }
-  
-  fn set_piece(&mut self) {
-    for block in self.piece.blocks.iter() {
-      self.setBlocks.set(*block);
+
+  fn is_row_set(&self, row: i8) -> bool {
+    let mut col = 1;
+    while self.setBlocks.has_block(row, col) {
+      col += 1;
     }
+    return col == 11i8;
+  }
+  
+  fn any_set_rows(&self) -> bool {
+    for row in range(1, 21i8) {
+      if self.is_row_set(row) {
+	return true;
+      }
+    }
+    return false;
+  }
+  
+  fn erase_block(&self, row: i8, col: i8) {
+    self.display.print_block(Block{row: row, column: col, color: Black});
   }
   
   fn erase_piece(&self) {
     for block in self.piece.blocks.iter() {
-      self.display.print_block(Block{row: block.row, column: block.column, color: Black}); 
+       self.erase_block(block.row, block.column);
+    }
+  }
+  
+  fn erase_row(&self, row: i8) {
+    for col in range(1, 11i8) {
+      self.erase_block(row, col);
+    }
+  }
+  
+  fn erase_set_rows(&self) {
+    for row in range(1, 21i8) {
+      if self.is_row_set(row) {
+	self.erase_row(row);
+      }
+    }
+    self.display.flush();
+  }
+  
+  fn erase_all_set_blocks(&self) {
+    for row in range(1, 21i8) {
+      for col in range(1, 11i8) {
+	match self.setBlocks.get(row, col) {
+	  None                                => (),
+	  Some(block) if block.color != Black => self.erase_block(row, col),
+	  _                                   => ()
+	}
+      }
     }
   }
   
@@ -641,12 +689,102 @@ impl<'a> TetrisGame<'a> {
     self.display.flush();
   }
 
+  fn print_set_blocks(&self) {
+    for row in range(1, 21i8) {
+      for col in range(1, 11i8) {
+	match self.setBlocks.get(row, col) {
+	  None        => (),
+	  Some(block) => self.display.print_block(block),
+	}
+      }
+    }
+    self.display.flush();
+  }
+  
+  fn set_piece(&mut self) {
+    for block in self.piece.blocks.iter() {
+      self.setBlocks.set(*block);
+    }
+  }
+  
+  fn clear_row(&mut self, row: i8) {
+    for col in range(1, 11i8) {
+      let mut r = row;
+      while r >= 2 {
+	match self.setBlocks.get(r - 1, col) {
+	  None        => self.setBlocks.remove(r, col),
+	  Some(block) => self.setBlocks.set(Block{row: r, column: col, color: block.color})
+	}
+	r -= 1;
+      }
+    }
+    for col in range(1, 11i8) {
+      self.setBlocks.remove(1, col);
+    }
+  }
+  
+  fn clear_set_rows(&mut self) {
+    let mut row = 20;
+    loop {
+      while row >= 1 && !self.is_row_set(row) {
+	row -= 1;
+      }
+      if row == 0 {
+	break;
+      } else {
+	self.clear_row(row);      
+      }
+    }
+  }
+  
   fn update_piece(&mut self, next: &Piece) {
     self.erase_piece();
     
     self.piece = *next;
     
     self.print_piece();
+  }
+  
+  fn step_fall(&mut self) {
+    if !self.can_move_rows(&self.piece, 1) {
+      self.set_piece();
+      
+      // TODO: here get the next piece, update its display
+      self.piece = pieces::new(I);
+      
+      if self.any_set_rows() {
+	self.erase_set_rows();
+	self.state = Clear;      
+      }
+    } else {
+      let translated = pieces::translate(&self.piece, 1, 0);
+      
+      self.update_piece(&translated);
+    }
+  }
+  
+  fn step_clear(&mut self) {
+    self.erase_all_set_blocks();
+    
+    self.clear_set_rows();
+    
+    self.print_set_blocks();
+    
+    self.state = Fall;
+  }
+  
+  fn rotate(&mut self, clockwise: bool) {
+    let rotated = if clockwise {
+      pieces::rotate_clockwise(&self.piece)
+    } else {
+      pieces::rotate_counter_clockwise(&self.piece)
+    };
+    
+    if !TetrisGame::in_bounds_cols(&rotated) || self.collides_with_set_blocks(&rotated) {
+      return;
+    }
+    
+    self.update_piece(&rotated);
   }
   
   fn quick_drop(&mut self) {
@@ -671,43 +809,6 @@ impl<'a> TetrisGame<'a> {
     
     self.update_piece(&translated);
   }
-  
-  fn rotate(&mut self, clockwise: bool) {
-    let rotated = if clockwise {
-      pieces::rotate_clockwise(&self.piece)
-    } else {
-      pieces::rotate_counter_clockwise(&self.piece)
-    };
-    
-    if !TetrisGame::in_bounds_cols(&rotated) || self.collides_with_set_blocks(&rotated) {
-      return;
-    }
-    
-    self.update_piece(&rotated);
-  }
-  
-  fn is_row_set(&self, row: i8) -> bool {
-    let mut col = 1;
-    while self.setBlocks.has_block(row, col) {
-      col += 1;
-    }
-    return col == 11i8;
-  }
-  
-  fn erase_row(&self, row: i8) {
-    for col in range(1, 11i8) {
-      self.display.print_block(Block{row: row, column: col, color: Black});
-    }
-  }
-  
-  fn erase_set_rows(&self) {
-    for row in range(1, 21i8) {
-      if self.is_row_set(row) {
-	self.erase_row(row);
-      }
-    }
-    self.display.flush();
-  }
 }
 
 impl<'a> GameHandler for TetrisGame<'a> {
@@ -716,26 +817,9 @@ impl<'a> GameHandler for TetrisGame<'a> {
   }
   
   fn handle_step(&mut self) {    
-    
-    // TODO: lots of logic here:
-    // check state - piece dropping, erase, drop set blocks, ...
-    // handle different states
-    
-    if !self.can_move_rows(&self.piece, 1) {
-      self.set_piece();
-      
-      // TODO: here get the next piece, update its display
-      self.piece = pieces::new(I);
-      
-      self.erase_set_rows();
-      
-      // TODO: set state to "clearing set rows" so next loop we actually remove the full rows of set blocks, and move set blocks above down
-      
-      // place the piece in the set blocks, get next piece, erase complete rows, next step drops down set blocks
-      
-    } else {
-      let translated = pieces::translate(&self.piece, 1, 0);
-      self.update_piece(&translated);
+    match self.state {
+      Fall  => self.step_fall(),
+      Clear => self.step_clear()
     }
   }
   
@@ -794,7 +878,7 @@ fn main() {
   let display = graphics::StandardDisplay;
   display.init();
   
-  let mut game = TetrisGame{display: &display, piece: pieces::new(I), setBlocks: [None, ..200]};
+  let mut game = TetrisGame{display: &display, state: Fall, piece: pieces::new(I), setBlocks: [None, ..200]};
   game.init();
   main_loop(&mut game);
   
