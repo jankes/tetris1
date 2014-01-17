@@ -3,7 +3,8 @@ use extra::time;
 use std::libc::c_int;
 
 use graphics::Display;
-use pieces::{Block, Piece, Black, I};
+use piece_getter::{PieceGetter, new};
+use pieces::{Block, Piece, Black};
 use set_blocks::SetBlocks;
 
 mod terminal_control {
@@ -326,6 +327,7 @@ mod pieces {
     color: Color
   }
 
+  #[deriving(Clone)]
   pub enum PieceType {
     I = 0, J, L, O, S, T, Z
   }
@@ -573,8 +575,33 @@ mod set_blocks {
   }
 }
 
+mod piece_getter {
+  use pieces;
+  use pieces::{Piece, I, J, L, O, S, T, Z};
+  use std::rand::Rng;
+  use std::rand::os::OSRng;
+
+  pub trait PieceGetter {
+    fn next_piece(&mut self) -> Piece;
+  }
+  
+  pub fn new() -> ~PieceGetter {
+    return ~RandomPieceGetter{rng: OSRng::new()} as ~PieceGetter;
+  }
+  
+  struct RandomPieceGetter {
+    rng: OSRng
+  }
+  
+  impl PieceGetter for RandomPieceGetter {
+    fn next_piece(&mut self) -> Piece {
+      let pieceType = self.rng.choose(&[I, J, L, O, S, T, Z]);
+      return pieces::new(pieceType);
+    }
+  }
+}
+
 trait GameHandler {
-  fn init(&mut self);
   fn handle_step(&mut self);
   fn handle_input(&mut self, input: input_reader::ReadResult);
 }
@@ -585,11 +612,11 @@ enum State {
 
 struct TetrisGame<'a> {
   display: &'a Display,
+  pieceGetter: &'a mut PieceGetter,
   state: State,
   piece: Piece,
   //nextPiece: Piece
   setBlocks: [Option<Block>, ..200]
-  // piece getter trait impl
 }
 
 impl<'a> TetrisGame<'a> {
@@ -749,8 +776,7 @@ impl<'a> TetrisGame<'a> {
     if !self.can_move_rows(&self.piece, 1) {
       self.set_piece();
       
-      // TODO: here get the next piece, update its display
-      self.piece = pieces::new(I);
+      self.piece = self.pieceGetter.next_piece();
       
       if self.any_set_rows() {
 	self.erase_set_rows();
@@ -812,10 +838,6 @@ impl<'a> TetrisGame<'a> {
 }
 
 impl<'a> GameHandler for TetrisGame<'a> {
-  fn init(&mut self) {
-    
-  }
-  
   fn handle_step(&mut self) {    
     match self.state {
       Fall  => self.step_fall(),
@@ -878,8 +900,15 @@ fn main() {
   let display = graphics::StandardDisplay;
   display.init();
   
-  let mut game = TetrisGame{display: &display, state: Fall, piece: pieces::new(I), setBlocks: [None, ..200]};
-  game.init();
+  let mut pieceGetter = piece_getter::new();
+  let firstPiece = pieceGetter.next_piece();
+  
+  let mut game = TetrisGame{display: &display,
+                            pieceGetter: pieceGetter,
+                            state: Fall,
+                            piece: firstPiece,
+                            setBlocks: [None, ..200]};
+
   main_loop(&mut game);
   
   display.close();
