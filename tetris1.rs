@@ -190,7 +190,7 @@ mod input_reader {
 
 mod graphics {
   use std::io::stdio::flush;
-  use pieces::Block;
+  use pieces::{Block, Piece, O, S};
   
   fn csi() {
     print!("{}[", '\x1B');
@@ -247,6 +247,7 @@ mod graphics {
   pub trait Display {
     fn init(&self);
     fn print_block(&self, block: Block);
+    fn print_next_piece(&self, piece: &Piece);
     fn close(&self);
     fn flush(&self);
   }
@@ -270,9 +271,26 @@ mod graphics {
       print("  ");
     }
     
+    fn print_next_piece(&self, piece: &Piece) {
+      let colOffset = match piece.ty {
+	O | S => 12,
+	_     => 13
+      };
+      for block in piece.blocks.iter() {
+	move_cursor(5 + block.row + stdRowOffset, 2 * (colOffset + block.column) + stdBorderColumns - 1 + stdColumnOffset);
+	set_background_color(block.color as u8);
+	print("  ");
+      }
+
+    }
+    
     fn init(&self) {
       clear_terminal();
       print_borders(20, 20, stdRowOffset, stdColumnOffset);
+      
+      move_cursor(5 + stdRowOffset, 2 * 14 + stdBorderColumns - 1 + stdColumnOffset);
+      print("Next:");
+      
       flush();
     }
     
@@ -615,7 +633,7 @@ struct TetrisGame<'a> {
   pieceGetter: &'a mut PieceGetter,
   state: State,
   piece: Piece,
-  //nextPiece: Piece
+  nextPiece: Piece,
   setBlocks: [Option<Block>, ..200]
 }
 
@@ -709,6 +727,29 @@ impl<'a> TetrisGame<'a> {
     }
   }
   
+  fn erase_next_piece(&self) {
+    let erase = Piece {
+                  ty:     self.nextPiece.ty,
+                  rotate: self.nextPiece.rotate,
+                  blocks: [Block{row:    self.nextPiece.blocks[0].row,
+                                 column: self.nextPiece.blocks[0].column,
+                                 color:  Black},
+                           
+                           Block{row:    self.nextPiece.blocks[1].row,
+                                 column: self.nextPiece.blocks[1].column,
+                                 color:  Black},
+                           
+                           Block{row:    self.nextPiece.blocks[2].row,
+                                 column: self.nextPiece.blocks[2].column,
+                                 color:  Black},
+                           
+                           Block{row:    self.nextPiece.blocks[3].row,
+                                 column: self.nextPiece.blocks[3].column,
+                                 color:  Black}]
+    };
+    self.display.print_next_piece(&erase);
+  }
+  
   fn print_piece(&self) {
     for block in self.piece.blocks.iter() {
       self.display.print_block(*block);
@@ -776,7 +817,12 @@ impl<'a> TetrisGame<'a> {
     if !self.can_move_rows(&self.piece, 1) {
       self.set_piece();
       
-      self.piece = self.pieceGetter.next_piece();
+      self.erase_next_piece();
+      
+      self.piece = self.nextPiece;
+      self.nextPiece = self.pieceGetter.next_piece();
+      
+      self.display.print_next_piece(&self.nextPiece);
       
       if self.any_set_rows() {
 	self.erase_set_rows();
@@ -902,11 +948,15 @@ fn main() {
   
   let mut pieceGetter = piece_getter::new();
   let firstPiece = pieceGetter.next_piece();
+  let secondPiece = pieceGetter.next_piece();
+
+  display.print_next_piece(&secondPiece);
   
   let mut game = TetrisGame{display: &display,
                             pieceGetter: pieceGetter,
                             state: Fall,
                             piece: firstPiece,
+                            nextPiece: secondPiece,
                             setBlocks: [None, ..200]};
 
   main_loop(&mut game);
