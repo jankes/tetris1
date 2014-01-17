@@ -11,11 +11,11 @@ mod terminal_control {
   use std::libc::c_int;
   
   struct termios {
-    c_iflag: c_int,     // input flags
-    c_oflag: c_int,     // output flags
-    c_cflag: c_int,     // control flags
-    c_lflag: c_int,     // local flags
-    c_cc: [u8, ..32],   // control characters
+    c_iflag: c_int,      // input flags
+    c_oflag: c_int,      // output flags
+    c_cflag: c_int,      // control flags
+    c_lflag: c_int,      // local flags
+    c_cc:    [u8, ..32], // control characters
     
     // on my machine's C compiler and environment:
     // -- sizeof(int) == 4
@@ -38,7 +38,7 @@ mod terminal_control {
 	c_oflag: 0,
 	c_cflag: 0,
 	c_lflag: 0,
-	c_cc: [0, ..32],
+	c_cc:    [0, ..32],
 	padding: [0, ..12]
       };
       // first parameter is file descriptor number, 0 ==> standard input
@@ -124,8 +124,8 @@ mod input_reader {
   }
   
   struct pollfd {
-    fd: c_int,
-    events: c_short,
+    fd:      c_int,
+    events:  c_short,
     revents: c_short
   }
 
@@ -137,9 +137,9 @@ mod input_reader {
   pub fn poll_stdin(timeoutMillis: c_int) -> PollResult {
     unsafe {
       let pfd = pollfd {
-	fd: 0,     // standard input file descriptor number
-	events: 1, // POLLIN event
-	revents: 0 // kernel modifies this field when calling poll()
+	fd:      0, // standard input file descriptor number
+	events:  1, // POLLIN event
+	revents: 0  // kernel modifies this field when calling poll()
       };
       let pr = poll(&pfd, 1, timeoutMillis);
       if pr > 0 {
@@ -340,9 +340,9 @@ mod pieces {
   }
 
   pub struct Block {
-    row: i8,
+    row:    i8,
     column: i8,
-    color: Color
+    color:  Color
   }
 
   #[deriving(Clone)]
@@ -351,7 +351,7 @@ mod pieces {
   }
 
   pub struct Piece {
-    ty: PieceType,
+    ty:     PieceType,
     rotate: u8,
     blocks: [Block, ..4]
   }
@@ -401,51 +401,51 @@ mod pieces {
     Piece{ty:     I,
 	  rotate: 0,
 	  blocks: [Block{row: 0, column: 4, color: Cyan},
-		  Block{row: 0, column: 5, color: Cyan},
-		  Block{row: 0, column: 6, color: Cyan},
-		  Block{row: 0, column: 7, color: Cyan}]},
+		   Block{row: 0, column: 5, color: Cyan},
+		   Block{row: 0, column: 6, color: Cyan},
+		   Block{row: 0, column: 7, color: Cyan}]},
     
     Piece{ty:     J,
 	  rotate: 0,
 	  blocks: [Block{row: -1, column: 4, color: Blue},
-		  Block{row:  0, column: 4, color: Blue},
-		  Block{row:  0, column: 5, color: Blue},
-		  Block{row:  0, column: 6, color: Blue}]},
+		   Block{row:  0, column: 4, color: Blue},
+		   Block{row:  0, column: 5, color: Blue},
+		   Block{row:  0, column: 6, color: Blue}]},
     
     Piece{ty:     L,
 	  rotate: 0,
 	  blocks: [Block{row:  0, column: 4, color: White},
-		  Block{row:  0, column: 5, color: White},
-		  Block{row:  0, column: 6, color: White},
-		  Block{row: -1, column: 6, color: White}]},
+		   Block{row:  0, column: 5, color: White},
+		   Block{row:  0, column: 6, color: White},
+		   Block{row: -1, column: 6, color: White}]},
 
     Piece{ty:     O,
 	  rotate: 0,
 	  blocks: [Block{row: -1, column: 5, color: Yellow},
-		  Block{row: -1, column: 6, color: Yellow},
-		  Block{row:  0, column: 5, color: Yellow},
-		  Block{row:  0, column: 6, color: Yellow}]},
+		   Block{row: -1, column: 6, color: Yellow},
+		   Block{row:  0, column: 5, color: Yellow},
+		   Block{row:  0, column: 6, color: Yellow}]},
     
     Piece{ty:     S,
 	  rotate: 0,
 	  blocks: [Block{row:  0, column: 5, color: Green},
-		  Block{row:  0, column: 6, color: Green},
-		  Block{row: -1, column: 6, color: Green},
-		  Block{row: -1, column: 7, color: Green}]},
+		   Block{row:  0, column: 6, color: Green},
+		   Block{row: -1, column: 6, color: Green},
+		   Block{row: -1, column: 7, color: Green}]},
     
     Piece{ty:     T,
 	  rotate: 0,
 	  blocks: [Block{row:  0, column: 4, color: Magenta},
-		  Block{row:  0, column: 5, color: Magenta},
-		  Block{row:  0, column: 6, color: Magenta},
-		  Block{row: -1, column: 5, color: Magenta}]},
+		   Block{row:  0, column: 5, color: Magenta},
+		   Block{row:  0, column: 6, color: Magenta},
+		   Block{row: -1, column: 5, color: Magenta}]},
 
     Piece{ty:     Z,
 	  rotate: 0,
 	  blocks: [Block{row: -1, column: 4, color: Red},
-		  Block{row: -1, column: 5, color: Red},
-		  Block{row:  0, column: 5, color: Red},
-		  Block{row:  0, column: 6, color: Red}]}
+		   Block{row: -1, column: 5, color: Red},
+		   Block{row:  0, column: 5, color: Red},
+		   Block{row:  0, column: 6, color: Red}]}
   ];
 
   pub fn new(ty: PieceType) -> Piece {
@@ -502,7 +502,7 @@ mod pieces {
     
       Block{row:    blocks[1].row    + s * transform[1].row(),
 	    column: blocks[1].column + s * transform[1].col(),
-	    color: blocks[1].color},
+	    color:  blocks[1].color},
     
       Block{row:    blocks[2].row    + s * transform[2].row(),
 	    column: blocks[2].column + s * transform[2].col(),
@@ -516,7 +516,7 @@ mod pieces {
 
   pub fn rotate_clockwise(piece: &Piece) -> Piece {
     Piece {
-      ty: piece.ty,
+      ty:     piece.ty,
       rotate: (piece.rotate + 1) % 4,
       blocks: transform_blocks(true, &piece.blocks, pieceRotate[piece.ty as int][piece.rotate])
     }
@@ -524,7 +524,7 @@ mod pieces {
 
   pub fn rotate_counter_clockwise(piece: &Piece) -> Piece {
     Piece {
-      ty: piece.ty,
+      ty:     piece.ty,
       rotate: (piece.rotate + 3) % 4,
       blocks: transform_blocks(false, &piece.blocks, pieceRotate[piece.ty as int][(piece.rotate + 3) % 4])
     }
@@ -532,7 +532,7 @@ mod pieces {
   
   pub fn translate(piece: &Piece, rowOffset: i8, columnOffset: i8) -> Piece {
     Piece {
-      ty: piece.ty,
+      ty:     piece.ty,
       rotate: piece.rotate,
       blocks: [Block{row:    piece.blocks[0].row    + rowOffset,
                      column: piece.blocks[0].column + columnOffset,
@@ -629,12 +629,12 @@ enum State {
 }
 
 struct TetrisGame<'a> {
-  display: &'a Display,
+  display:     &'a Display,
   pieceGetter: &'a mut PieceGetter,
-  state: State,
-  piece: Piece,
-  nextPiece: Piece,
-  setBlocks: [Option<Block>, ..200]
+  state:       State,
+  piece:       Piece,
+  nextPiece:   Piece,
+  setBlocks:   [Option<Block>, ..200]
 }
 
 impl<'a> TetrisGame<'a> {
@@ -952,12 +952,12 @@ fn main() {
 
   display.print_next_piece(&secondPiece);
   
-  let mut game = TetrisGame{display: &display,
+  let mut game = TetrisGame{display:     &display,
                             pieceGetter: pieceGetter,
-                            state: Fall,
-                            piece: firstPiece,
-                            nextPiece: secondPiece,
-                            setBlocks: [None, ..200]};
+                            state:       Fall,
+                            piece:       firstPiece,
+                            nextPiece:   secondPiece,
+                            setBlocks:   [None, ..200]};
 
   main_loop(&mut game);
   
