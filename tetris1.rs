@@ -620,12 +620,12 @@ mod piece_getter {
 }
 
 trait GameHandler {
-  fn handle_step(&mut self);
+  fn handle_step(&mut self) -> Option<c_int>;
   fn handle_input(&mut self, input: input_reader::ReadResult);
 }
 
 enum State {
-  Fall = 0, Clear
+  Fall = 0, Clear, GameOver
 }
 
 struct TetrisGame<'a> {
@@ -662,6 +662,15 @@ impl<'a> TetrisGame<'a> {
   fn in_bounds_cols(piece: &Piece) -> bool {
     for block in piece.blocks.iter() {
       if block.column < 1 || block.column > 10 {
+	return false;
+      }
+    }
+    return true;
+  }
+  
+  fn all_in_bounds(piece: &Piece) -> bool {
+    for block in piece.blocks.iter() {
+      if block.row < 1 || block.row > 20 || block.column < 1 || block.column > 10 {
 	return false;
       }
     }
@@ -813,8 +822,7 @@ impl<'a> TetrisGame<'a> {
     self.print_piece();
   }
   
-  fn step_fall(&mut self) {
-    if !self.can_move_rows(&self.piece, 1) {
+  fn go_to_next_piece(&mut self) {
       self.set_piece();
       
       self.erase_next_piece();
@@ -822,20 +830,33 @@ impl<'a> TetrisGame<'a> {
       self.piece = self.nextPiece;
       self.nextPiece = self.pieceGetter.next_piece();
       
-      self.display.print_next_piece(&self.nextPiece);
-      
-      if self.any_set_rows() {
-	self.erase_set_rows();
-	self.state = Clear;      
-      }
-    } else {
-      let translated = pieces::translate(&self.piece, 1, 0);
-      
-      self.update_piece(&translated);
-    }
+      self.display.print_next_piece(&self.nextPiece);    
   }
   
-  fn step_clear(&mut self) {
+  fn step_fall(&mut self) -> Option<c_int> {
+    match self.can_move_rows(&self.piece, 1) {
+      true  => {
+	let translated = pieces::translate(&self.piece, 1, 0);
+	self.update_piece(&translated);
+      }
+      false => {
+	if !TetrisGame::all_in_bounds(&self.piece) {
+	  self.state = GameOver;
+	  return Some(500);
+	}
+	
+	self.go_to_next_piece();
+	
+	if self.any_set_rows() {
+	  self.erase_set_rows();
+	  self.state = Clear;      
+	}	
+      }
+    }
+    Some(1000)
+  }
+  
+  fn step_clear(&mut self) -> Option<c_int> {
     self.erase_all_set_blocks();
     
     self.clear_set_rows();
@@ -843,6 +864,12 @@ impl<'a> TetrisGame<'a> {
     self.print_set_blocks();
     
     self.state = Fall;
+    
+    Some(1000)
+  }
+  
+  fn step_game_over(&mut self) -> Option<c_int> {
+    None
   }
   
   fn rotate(&mut self, clockwise: bool) {
@@ -884,10 +911,11 @@ impl<'a> TetrisGame<'a> {
 }
 
 impl<'a> GameHandler for TetrisGame<'a> {
-  fn handle_step(&mut self) {    
+  fn handle_step(&mut self) -> Option<c_int> {    
     match self.state {
-      Fall  => self.step_fall(),
-      Clear => self.step_clear()
+      Fall     => self.step_fall(),
+      Clear    => self.step_clear(),
+      GameOver => self.step_game_over()
     }
   }
   
@@ -907,7 +935,7 @@ fn main_loop<T: GameHandler>(handler: &mut T) {
   use input_reader::{poll_stdin, read_stdin, Other, PollReady, PollTimeout};
   
   // milliseconds between piece drop steps
-  let stepTimeMs: c_int = 1000;
+  let mut stepTimeMs: c_int = 1000;
   
   // milliseconds for poll timeout
   let mut pollTimeMs = stepTimeMs;
@@ -929,9 +957,14 @@ fn main_loop<T: GameHandler>(handler: &mut T) {
 	}
       }
       PollTimeout => {
-	pollTimeMs = stepTimeMs;
-	sinceLastStepNs = 0;
-	handler.handle_step();
+	match handler.handle_step() {
+	  None                 => { break; }
+	  Some(nextStepTimeMs) => {
+	    stepTimeMs = nextStepTimeMs;
+	    pollTimeMs = nextStepTimeMs;
+	    sinceLastStepNs = 0;
+	  }
+	}
       }
     }
   }
