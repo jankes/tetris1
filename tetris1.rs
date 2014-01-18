@@ -631,10 +631,54 @@ enum State {
 struct TetrisGame<'a> {
   display:     &'a Display,
   pieceGetter: &'a mut PieceGetter,
+  level:       int,
+  score:       int,
+  bonus:       int,
+  bonusDrop:   int,
   state:       State,
   piece:       Piece,
   nextPiece:   Piece,
   setBlocks:   [Option<Block>, ..200]
+}
+
+// 
+static bonus_drop_reset: int = 2;
+
+// 
+static levels : [(c_int, int, int), ..1] = [(1000, 0, 5)];
+
+
+trait Level {
+  fn time(self) -> c_int;
+  fn score(self) -> int;
+  fn count(self) -> int;
+}
+
+impl Level for (c_int, int, int) {
+  fn time(self) -> c_int {
+    let (time, _, _) = self;
+    time
+  }
+  fn score(self) -> int {
+    let (_, score, _) = self;
+    score
+  }
+  fn count(self) -> int {
+    let (_, _, count) = self;
+    count
+  }
+}
+
+fn get_level_score(level: int) -> int {
+  levels[level - 1].score()
+}
+
+fn get_base_score(setRows: int) -> int {
+  10 * (1 << (setRows - 1))
+}
+
+fn get_level_time(level: int) -> c_int {
+  levels[level - 1].time()
 }
 
 impl<'a> TetrisGame<'a> {
@@ -690,13 +734,14 @@ impl<'a> TetrisGame<'a> {
     return col == 11i8;
   }
   
-  fn any_set_rows(&self) -> bool {
+  fn set_row_count(&self) -> int {
+    let mut count = 0;
     for row in range(1, 21i8) {
       if self.is_row_set(row) {
-	return true;
+	count += 1;
       }
     }
-    return false;
+    return count;
   }
   
   fn erase_block(&self, row: i8, col: i8) {
@@ -838,6 +883,7 @@ impl<'a> TetrisGame<'a> {
       true  => {
 	let translated = pieces::translate(&self.piece, 1, 0);
 	self.update_piece(&translated);
+	Some(get_level_time(self.level))
       }
       false => {
 	if !TetrisGame::all_in_bounds(&self.piece) {
@@ -847,13 +893,33 @@ impl<'a> TetrisGame<'a> {
 	
 	self.go_to_next_piece();
 	
-	if self.any_set_rows() {
+	// TODO: possibly refactor out scoring calculations into their own method
+	
+	let setRows = self.set_row_count();
+	if setRows > 0 {
+	  self.score += (get_base_score(setRows) + get_level_score(self.level)) * self.bonus;
+	  if self.bonus == 1 {
+	    self.bonus = 2 * setRows;
+	  } else {
+	    self.bonus += 2 * setRows;
+	  }
+	  self.bonusDrop = bonus_drop_reset;
+	  
 	  self.erase_set_rows();
-	  self.state = Clear;      
-	}	
+	  self.state = Clear;
+	} else {
+	  // TODO: update number of dropped pieces, bump level if needed
+	  if self.bonus > 1 {
+	    self.bonusDrop -= 1;
+	    if self.bonusDrop == 0 {
+	      self.bonus -= 1;
+	      self.bonusDrop = bonus_drop_reset;
+	    }	  
+	  }
+	}
+	Some(1000)
       }
     }
-    Some(1000)
   }
   
   fn step_clear(&mut self) -> Option<c_int> {
@@ -987,6 +1053,10 @@ fn main() {
   
   let mut game = TetrisGame{display:     &display,
                             pieceGetter: pieceGetter,
+                            level:       1,
+                            score:       0,
+                            bonus:       1,
+                            bonusDrop:   bonus_drop_reset,
                             state:       Fall,
                             piece:       firstPiece,
                             nextPiece:   secondPiece,
