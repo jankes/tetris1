@@ -2,7 +2,7 @@ extern mod extra;
 use extra::time;
 use std::libc::c_int;
 
-use pieces::{Block, Piece, Black};
+use pieces::{Block, Piece};
 use graphics::Display;
 use piece_getter::{PieceGetter, new};
 use scoring::{Scoring, Score};
@@ -848,19 +848,9 @@ impl<'a> TetrisGame<'a> {
     return count;
   }
   
-  fn erase_block(&self, row: i8, col: i8) {
-    self.display.print_block(Block{row: row, column: col, color: Black});
-  }
-  
-  fn erase_piece(&self) {
-    for block in self.piece.blocks.iter() {
-       self.erase_block(block.row, block.column);
-    }
-  }
-  
   fn erase_row(&self, row: i8) {
     for col in range(1, 11i8) {
-      self.erase_block(row, col);
+      self.display.erase_block(row, col);
     }
   }
   
@@ -870,49 +860,17 @@ impl<'a> TetrisGame<'a> {
 	self.erase_row(row);
       }
     }
-    self.display.flush();
   }
   
   fn erase_all_set_blocks(&self) {
     for row in range(1, 21i8) {
       for col in range(1, 11i8) {
 	match self.setBlocks.get(row, col) {
-	  None                                => (),
-	  Some(block) if block.color != Black => self.erase_block(row, col),
-	  _                                   => ()
+	  None    => (),
+	  Some(_) => self.display.erase_block(row, col)
 	}
       }
     }
-  }
-  
-  fn erase_next_piece(&self) {
-    let erase = Piece {
-                  ty:     self.nextPiece.ty,
-                  rotate: self.nextPiece.rotate,
-                  blocks: [Block{row:    self.nextPiece.blocks[0].row,
-                                 column: self.nextPiece.blocks[0].column,
-                                 color:  Black},
-                           
-                           Block{row:    self.nextPiece.blocks[1].row,
-                                 column: self.nextPiece.blocks[1].column,
-                                 color:  Black},
-                           
-                           Block{row:    self.nextPiece.blocks[2].row,
-                                 column: self.nextPiece.blocks[2].column,
-                                 color:  Black},
-                           
-                           Block{row:    self.nextPiece.blocks[3].row,
-                                 column: self.nextPiece.blocks[3].column,
-                                 color:  Black}]
-    };
-    self.display.print_next_piece(&erase);
-  }
-  
-  fn print_piece(&self) {
-    for block in self.piece.blocks.iter() {
-      self.display.print_block(*block);
-    }
-    self.display.flush();
   }
 
   fn print_set_blocks(&self) {
@@ -964,17 +922,17 @@ impl<'a> TetrisGame<'a> {
   }
   
   fn update_piece(&mut self, next: &Piece) {
-    self.erase_piece();
+    self.display.erase_piece(&self.piece);
     
     self.piece = *next;
     
-    self.print_piece();
+    self.display.print_piece(&self.piece);
   }
   
   fn go_to_next_piece(&mut self) {
       self.set_piece();
       
-      self.erase_next_piece();
+      self.display.erase_next_piece(&self.nextPiece);
       
       self.piece = self.nextPiece;
       self.nextPiece = self.pieceGetter.next_piece();
@@ -1067,11 +1025,14 @@ impl<'a> TetrisGame<'a> {
 
 impl<'a> GameHandler for TetrisGame<'a> {
   fn handle_step(&mut self) -> Option<c_int> {    
+    let stepTime = 
     match self.state {
       Fall     => self.step_fall(),
       Clear    => self.step_clear(),
       GameOver => self.step_game_over()
-    }
+    };
+    self.display.flush();
+    stepTime
   }
   
   fn handle_input(&mut self, input: input_reader::ReadResult) {
@@ -1083,6 +1044,7 @@ impl<'a> GameHandler for TetrisGame<'a> {
       Left  => self.translate_cols(-1),
       _     => fail!("unknown direction")
     }
+    self.display.flush();
   }
 }
 
