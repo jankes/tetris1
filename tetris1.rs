@@ -5,7 +5,7 @@ use std::libc::c_int;
 use pieces::{Block, Piece};
 use graphics::Display;
 use piece_getter::{PieceGetter, new};
-use scoring::{Scoring, Score};
+use scoring::Scoring;
 use set_blocks::SetBlocks;
 
 mod terminal_control {
@@ -192,6 +192,7 @@ mod input_reader {
 mod graphics {
   use std::io::stdio::flush;
   use pieces::{Block, Black, Piece, O, S};
+  use scoring::Score;
   
   fn csi() {
     print!("{}[", '\x1B');
@@ -207,9 +208,10 @@ mod graphics {
     print("0m");
   }
 
-  fn move_cursor(row: i8, column: i8) {
+  fn move_cursor(rowCol: (i8, i8)) {
+    let (row, col) = rowCol;
     csi();
-    print!("{};{}H", row, column);
+    print!("{};{}H", row, col);
   }
   
   fn set_background_color(offset: u8) {
@@ -223,21 +225,21 @@ mod graphics {
     // sides
     let mut row = 1;
     while row <= rows + 1 {
-      move_cursor(row + rowOffset, 1 + columnOffset);
+      move_cursor((row + rowOffset, 1 + columnOffset));
       print("<!");
-      move_cursor(row + rowOffset, 3 + cols + columnOffset);
+      move_cursor((row + rowOffset, 3 + cols + columnOffset));
       print("!>");
       row += 1;
     }
     
     // bottom
-    move_cursor(rows + rowOffset + 1, 3 + columnOffset);
+    move_cursor((rows + rowOffset + 1, 3 + columnOffset));
     let mut col = 1;
     while col <= cols {
       print("=");
       col += 1;
     }
-    move_cursor(rows + rowOffset + 2, 3 + columnOffset);
+    move_cursor((rows + rowOffset + 2, 3 + columnOffset));
     col = 1;
     while col <= cols - 1 {
       print("\\/");
@@ -249,6 +251,7 @@ mod graphics {
     fn init(&self);
     fn close(&self);
     fn flush(&self);
+    fn print_score(&self, score: Score);
     fn print_block(&self, block: Block);
     fn print_piece(&self, piece: &Piece);
     fn print_next_piece(&self, piece: &Piece);
@@ -288,6 +291,13 @@ mod graphics {
 
   }
 
+  // game level row/column for the information area (displaying score info, next piece)
+  static infoCol: i8 = 14;
+  static levelRow: i8 = 2;
+  static bonusRow: i8 = 4;
+  static scoreRow: i8 = 6;
+  static nextRow: i8 = 10;
+  
   pub struct StandardDisplay;
 
   // terminal level row/column offsets for everything (Blocks, borders, ...)
@@ -297,12 +307,28 @@ mod graphics {
   // terminal level number of columns a left/right border takes
   static stdBorderColumns: i8 = 2i8;
   
+  impl StandardDisplay {
+    #[inline(always)]
+    fn to_terminal(row: i8, col: i8) -> (i8, i8) {
+      (row + stdRowOffset, 2 * col + stdBorderColumns - 1 + stdColumnOffset)
+    }
+  }
+  
   impl Display for StandardDisplay {
     fn init(&self) {
       clear_terminal();
       print_borders(20, 20, stdRowOffset, stdColumnOffset);
       
-      move_cursor(5 + stdRowOffset, 2 * 14 + stdBorderColumns - 1 + stdColumnOffset);
+      move_cursor(StandardDisplay::to_terminal(levelRow, infoCol));
+      print("Level:");
+      
+      move_cursor(StandardDisplay::to_terminal(bonusRow, infoCol));
+      print("Bonus:");
+      
+      move_cursor(StandardDisplay::to_terminal(scoreRow, infoCol));
+      print("Score:");
+      
+      move_cursor(StandardDisplay::to_terminal(nextRow, infoCol));
       print("Next:");
       
       flush();
@@ -316,11 +342,24 @@ mod graphics {
       flush();
     }
     
+    fn print_score(&self, score: Score) {
+      reset_graphics();
+      
+      move_cursor(StandardDisplay::to_terminal(levelRow, infoCol + 4));
+      print!("{}   ", score.level);
+      
+      move_cursor(StandardDisplay::to_terminal(bonusRow, infoCol + 4));
+      print!("{}    ", score.bonus);
+      
+      move_cursor(StandardDisplay::to_terminal(scoreRow, infoCol + 4));
+      print!("{}    ", score.score);
+    }
+    
     fn print_block(&self, block: Block) {
       if block.row < 1 || block.column < 1 {
 	return;
       }
-      move_cursor(block.row + stdRowOffset, 2 * block.column + stdBorderColumns - 1 + stdColumnOffset);
+      move_cursor(StandardDisplay::to_terminal(block.row, block.column));
       set_background_color(block.color as u8);
       print("  ");
     }
@@ -337,7 +376,7 @@ mod graphics {
 	_     => 13
       };
       for block in piece.blocks.iter() {
-	move_cursor(5 + block.row + stdRowOffset, 2 * (colOffset + block.column) + stdBorderColumns - 1 + stdColumnOffset);
+	move_cursor(StandardDisplay::to_terminal(10 + block.row, colOffset + block.column));
 	set_background_color(block.color as u8);
 	print("  ");
       }
@@ -604,7 +643,7 @@ mod set_blocks {
     fn set(&mut self, block: Block);
   }
 
-  #[inline]
+  #[inline(always)]
   fn index(row: i8, col: i8) -> int {
     return 10 * ((row as int) - 1) + (col as int) - 1;
   }
@@ -672,7 +711,7 @@ mod scoring {
   
   static levels : [Level, ..1] = [Level{time: 1000, score: 0, count: 5, bonusInc: 1}];
   
-  #[inline]
+  #[inline(always)]
   fn get_level(level: u16) -> &'static Level {
     &levels[level - 1]
   }
@@ -684,6 +723,7 @@ mod scoring {
   }
   
   pub trait Scoring {
+    fn get_score(&self) -> Score;
     fn update(&mut self, setRows: int) -> Score;
     fn get_time(&self) -> c_int;
   }
@@ -709,35 +749,35 @@ mod scoring {
   
   impl StdScoring {
     fn update_some_set_rows(&mut self, setRows: int) -> Score {
-	let level = get_level(self.level);
-	
-	let baseScore = 10 * (1 << (setRows - 1));
-	let levelScore = level.score;
-	
-	self.score += (baseScore + levelScore) * self.bonus;
-	
-	self.count += 1;
-	
-	// add to the bonus when a level is cleared
-	let bonusInc = if self.count > level.count { level.bonusInc } else { 0 };
-	
-	if self.count > level.count {
-	  if self.level < levels.len() as u16 {
-	    self.level += 1;
-	  }
-	  self.count = 0;
+      let level = get_level(self.level);
+      
+      let baseScore = 10 * (1 << (setRows - 1));
+      let levelScore = level.score;
+      
+      self.score += (baseScore + levelScore) * self.bonus;
+      
+      self.count += 1;
+      
+      // add to the bonus when a level is cleared
+      let bonusInc = if self.count > level.count { level.bonusInc } else { 0 };
+      
+      if self.count > level.count {
+	if self.level < levels.len() as u16 {
+	  self.level += 1;
 	}
-	
-	if self.bonus == 1 {
-	  self.bonus = 2 * setRows;
-	} else {
-	  self.bonus += 2 * setRows;
-	}
-	self.bonus += bonusInc;
-	
-	self.bonusDrop = bonus_drop_reset;
-	
-	Score{level: self.level, bonus: self.bonus, score: self.score}
+	self.count = 0;
+      }
+      
+      if self.bonus == 1 {
+	self.bonus = 2 * setRows;
+      } else {
+	self.bonus += 2 * setRows;
+      }
+      self.bonus += bonusInc;
+      
+      self.bonusDrop = bonus_drop_reset;
+      
+      self.get_score()
     }
     
     fn update_no_set_rows(&mut self) -> Score {
@@ -748,11 +788,15 @@ mod scoring {
 	  self.bonusDrop = bonus_drop_reset;
 	}	  
       }
-      Score{level: self.level, bonus: self.bonus, score: self.score}
+      self.get_score()
     }
   }
   
   impl Scoring for StdScoring {
+    fn get_score(&self) -> Score {
+      Score{level: self.level, bonus: self.bonus, score: self.score}
+    }
+    
     fn update(&mut self, setRows: int) -> Score {
       match setRows {
 	count if count > 0 => self.update_some_set_rows(count),
@@ -767,6 +811,7 @@ mod scoring {
 }
 
 trait GameHandler {
+  fn init(&self);
   fn handle_step(&mut self) -> Option<c_int>;
   fn handle_input(&mut self, input: input_reader::ReadResult);
 }
@@ -785,10 +830,7 @@ struct TetrisGame<'a> {
   setBlocks:   [Option<Block>, ..200]
 }
 
-impl<'a> TetrisGame<'a> {
-  
-  // TODO: fn new(piece getter impl)
-  
+impl<'a> TetrisGame<'a> {  
   fn collides_with_set_blocks(&self, piece: &Piece) -> bool {
     for block in piece.blocks.iter() {
       if self.setBlocks.has_block(block.row, block.column) {
@@ -937,7 +979,7 @@ impl<'a> TetrisGame<'a> {
       self.piece = self.nextPiece;
       self.nextPiece = self.pieceGetter.next_piece();
       
-      self.display.print_next_piece(&self.nextPiece);    
+      self.display.print_next_piece(&self.nextPiece);
   }
   
   fn step_fall(&mut self) -> Option<c_int> {
@@ -962,7 +1004,8 @@ impl<'a> TetrisGame<'a> {
 	  self.state = Clear;
 	}
 	
-	self.scoring.update(setRows);
+	let s = self.scoring.update(setRows);
+	self.display.print_score(s);
 	
 	Some(1000)
       }
@@ -1024,6 +1067,12 @@ impl<'a> TetrisGame<'a> {
 }
 
 impl<'a> GameHandler for TetrisGame<'a> {
+    fn init(&self) {
+    self.display.print_next_piece(&self.nextPiece);
+    self.display.print_score(self.scoring.get_score());
+    self.display.flush();
+  }
+  
   fn handle_step(&mut self) -> Option<c_int> {    
     let stepTime = 
     match self.state {
@@ -1050,6 +1099,8 @@ impl<'a> GameHandler for TetrisGame<'a> {
 
 fn main_loop<T: GameHandler>(handler: &mut T) {
   use input_reader::{poll_stdin, read_stdin, Other, PollReady, PollTimeout};
+  
+  handler.init();
   
   // milliseconds between piece drop steps
   let mut stepTimeMs: c_int = 1000;
