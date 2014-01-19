@@ -709,7 +709,17 @@ mod scoring {
     bonusInc: int
   }
   
-  static levels : [Level, ..1] = [Level{time: 1000, score: 0, count: 5, bonusInc: 1}];
+  static levels : [Level, ..11] = [Level{time: 1000, score: 0,  count: 3, bonusInc: 1},
+                                   Level{time: 900,  score: 5,  count: 3, bonusInc: 1},
+                                   Level{time: 800,  score: 10, count: 3, bonusInc: 2},
+                                   Level{time: 700,  score: 15, count: 3, bonusInc: 2},
+                                   Level{time: 600,  score: 20, count: 3, bonusInc: 3},
+                                   Level{time: 500,  score: 30, count: 4, bonusInc: 4},
+                                   Level{time: 400,  score: 40, count: 4, bonusInc: 4},
+                                   Level{time: 350,  score: 45, count: 5, bonusInc: 5},
+                                   Level{time: 300,  score: 50, count: 6, bonusInc: 10},
+                                   Level{time: 250,  score: 60, count: 6, bonusInc: 20},
+                                   Level{time: 200,  score: 70, count: 4, bonusInc: 20}];
   
   #[inline(always)]
   fn get_level(level: u16) -> &'static Level {
@@ -744,7 +754,7 @@ mod scoring {
     bonusDrop: int,
   }
   
-  // 
+  // control how many pieces drop without completing any rows before the bonus is decremented
   static bonus_drop_reset: int = 2;
   
   impl StdScoring {
@@ -1141,9 +1151,10 @@ fn main_loop<T: GameHandler>(handler: &mut T) {
 fn main() {
   let restorer = terminal_control::set_terminal_raw_mode();
   
-  // TODO: print the instructions, wait for the user to press Enter to start the game
+  // TODO: command line agument parsing
+  //       -option to display help
+  //       -option to start with double display
   
-  // TODO: ask the user if they want standard or double size
   let display = graphics::StandardDisplay;
   display.init();
   
