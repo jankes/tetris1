@@ -191,7 +191,7 @@ mod input_reader {
 
 mod graphics {
   use std::io::stdio::flush;
-  use pieces::{Block, Piece, O, S};
+  use pieces::{Block, Black, Piece, O, S};
   
   fn csi() {
     print!("{}[", '\x1B');
@@ -247,10 +247,45 @@ mod graphics {
   
   pub trait Display {
     fn init(&self);
-    fn print_block(&self, block: Block);
-    fn print_next_piece(&self, piece: &Piece);
     fn close(&self);
     fn flush(&self);
+    fn print_block(&self, block: Block);
+    fn print_piece(&self, piece: &Piece);
+    fn print_next_piece(&self, piece: &Piece);
+    
+    fn erase_block(&self, row: i8, col: i8) {
+      self.print_block(Block{row: row, column: col, color: Black});
+    }
+    
+    fn erase_piece(&self, piece: &Piece) {
+      for block in piece.blocks.iter() {
+        self.erase_block(block.row, block.column);
+      }
+    }
+    
+    fn erase_next_piece(&self, piece: &Piece) {
+      let erase = Piece {
+                    ty:     piece.ty,
+                    rotate: piece.rotate,
+                    blocks: [Block{row:    piece.blocks[0].row,
+                                   column: piece.blocks[0].column,
+                                   color:  Black},
+
+                             Block{row:    piece.blocks[1].row,
+                                   column: piece.blocks[1].column,
+                                   color:  Black},
+
+                             Block{row:    piece.blocks[2].row,
+                                   column: piece.blocks[2].column,
+                                   color:  Black},
+
+                             Block{row:    piece.blocks[3].row,
+                                   column: piece.blocks[3].column,
+                                   color:  Black}]
+      };
+      self.print_next_piece(&erase);
+    }
+
   }
 
   pub struct StandardDisplay;
@@ -263,28 +298,6 @@ mod graphics {
   static stdBorderColumns: i8 = 2i8;
   
   impl Display for StandardDisplay {
-    fn print_block(&self, block: Block) {
-      if block.row < 1 || block.column < 1 {
-	return;
-      }
-      move_cursor(block.row + stdRowOffset, 2 * block.column + stdBorderColumns - 1 + stdColumnOffset);
-      set_background_color(block.color as u8);
-      print("  ");
-    }
-    
-    fn print_next_piece(&self, piece: &Piece) {
-      let colOffset = match piece.ty {
-	O | S => 12,
-	_     => 13
-      };
-      for block in piece.blocks.iter() {
-	move_cursor(5 + block.row + stdRowOffset, 2 * (colOffset + block.column) + stdBorderColumns - 1 + stdColumnOffset);
-	set_background_color(block.color as u8);
-	print("  ");
-      }
-
-    }
-    
     fn init(&self) {
       clear_terminal();
       print_borders(20, 20, stdRowOffset, stdColumnOffset);
@@ -301,6 +314,33 @@ mod graphics {
     
     fn flush(&self) {
       flush();
+    }
+    
+    fn print_block(&self, block: Block) {
+      if block.row < 1 || block.column < 1 {
+	return;
+      }
+      move_cursor(block.row + stdRowOffset, 2 * block.column + stdBorderColumns - 1 + stdColumnOffset);
+      set_background_color(block.color as u8);
+      print("  ");
+    }
+    
+    fn print_piece(&self, piece: &Piece) {
+      for block in piece.blocks.iter() {
+	self.print_block(*block);
+      }
+    }
+    
+    fn print_next_piece(&self, piece: &Piece) {
+      let colOffset = match piece.ty {
+	O | S => 12,
+	_     => 13
+      };
+      for block in piece.blocks.iter() {
+	move_cursor(5 + block.row + stdRowOffset, 2 * (colOffset + block.column) + stdBorderColumns - 1 + stdColumnOffset);
+	set_background_color(block.color as u8);
+	print("  ");
+      }
     }
   }
   /*
