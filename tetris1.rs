@@ -2,9 +2,10 @@ extern mod extra;
 use extra::time;
 use std::libc::c_int;
 
+use pieces::{Block, Piece, Black};
 use graphics::Display;
 use piece_getter::{PieceGetter, new};
-use pieces::{Block, Piece, Black};
+use scoring::{Scoring, Score};
 use set_blocks::SetBlocks;
 
 mod terminal_control {
@@ -619,6 +620,112 @@ mod piece_getter {
   }
 }
 
+mod scoring {
+  use std::libc::c_int;
+
+  struct Level {
+    time:     c_int,
+    score:    int,
+    count:    int,
+    bonusInc: int
+  }
+  
+  static levels : [Level, ..1] = [Level{time: 1000, score: 0, count: 5, bonusInc: 1}];
+  
+  #[inline]
+  fn get_level(level: u16) -> &'static Level {
+    &levels[level - 1]
+  }
+  
+  pub struct Score {
+    level: u16,
+    bonus: int,
+    score: int
+  }
+  
+  pub trait Scoring {
+    fn update(&mut self, setRows: int) -> Score;
+    fn get_time(&self) -> c_int;
+  }
+  
+  pub fn new() -> ~Scoring {
+    ~StdScoring{level:     1,
+                score:     0,
+                bonus:     1,
+                count:     0,
+                bonusDrop: bonus_drop_reset} as ~Scoring
+  }
+  
+  struct StdScoring {
+    level:     u16,
+    score:     int,
+    bonus:     int,
+    count:     int,
+    bonusDrop: int,
+  }
+  
+  // 
+  static bonus_drop_reset: int = 2;
+  
+  impl StdScoring {
+    fn update_some_set_rows(&mut self, setRows: int) -> Score {
+	let level = get_level(self.level);
+	
+	let baseScore = 10 * (1 << (setRows - 1));
+	let levelScore = level.score;
+	
+	self.score += (baseScore + levelScore) * self.bonus;
+	
+	self.count += 1;
+	
+	// add to the bonus when a level is cleared
+	let bonusInc = if self.count > level.count { level.bonusInc } else { 0 };
+	
+	if self.count > level.count {
+	  if self.level < levels.len() as u16 {
+	    self.level += 1;
+	  }
+	  self.count = 0;
+	}
+	
+	if self.bonus == 1 {
+	  self.bonus = 2 * setRows;
+	} else {
+	  self.bonus += 2 * setRows;
+	}
+	self.bonus += bonusInc;
+	
+	self.bonusDrop = bonus_drop_reset;
+	
+	Score{level: self.level, bonus: self.bonus, score: self.score}
+    }
+    
+    fn update_no_set_rows(&mut self) -> Score {
+      if self.bonus > 1 {
+	self.bonusDrop -= 1;
+	if self.bonusDrop == 0 {
+	  self.bonus -= 1;
+	  self.bonusDrop = bonus_drop_reset;
+	}	  
+      }
+      Score{level: self.level, bonus: self.bonus, score: self.score}
+    }
+  }
+  
+  impl Scoring for StdScoring {
+    fn update(&mut self, setRows: int) -> Score {
+      match setRows {
+	count if count > 0 => self.update_some_set_rows(count),
+	_                  => self.update_no_set_rows()
+      }
+    }
+    
+    fn get_time(&self) -> c_int {
+      get_level(self.level).time
+    }
+  }
+}
+
 trait GameHandler {
   fn handle_step(&mut self) -> Option<c_int>;
   fn handle_input(&mut self, input: input_reader::ReadResult);
@@ -631,54 +738,11 @@ enum State {
 struct TetrisGame<'a> {
   display:     &'a Display,
   pieceGetter: &'a mut PieceGetter,
-  level:       int,
-  score:       int,
-  bonus:       int,
-  bonusDrop:   int,
+  scoring:     &'a mut Scoring,
   state:       State,
   piece:       Piece,
   nextPiece:   Piece,
   setBlocks:   [Option<Block>, ..200]
-}
-
-// 
-static bonus_drop_reset: int = 2;
-
-// 
-static levels : [(c_int, int, int), ..1] = [(1000, 0, 5)];
-
-
-trait Level {
-  fn time(self) -> c_int;
-  fn score(self) -> int;
-  fn count(self) -> int;
-}
-
-impl Level for (c_int, int, int) {
-  fn time(self) -> c_int {
-    let (time, _, _) = self;
-    time
-  }
-  fn score(self) -> int {
-    let (_, score, _) = self;
-    score
-  }
-  fn count(self) -> int {
-    let (_, _, count) = self;
-    count
-  }
-}
-
-fn get_level_score(level: int) -> int {
-  levels[level - 1].score()
-}
-
-fn get_base_score(setRows: int) -> int {
-  10 * (1 << (setRows - 1))
-}
-
-fn get_level_time(level: int) -> c_int {
-  levels[level - 1].time()
 }
 
 impl<'a> TetrisGame<'a> {
@@ -883,7 +947,8 @@ impl<'a> TetrisGame<'a> {
       true  => {
 	let translated = pieces::translate(&self.piece, 1, 0);
 	self.update_piece(&translated);
-	Some(get_level_time(self.level))
+	
+	Some(self.scoring.get_time())
       }
       false => {
 	if !TetrisGame::all_in_bounds(&self.piece) {
@@ -893,30 +958,14 @@ impl<'a> TetrisGame<'a> {
 	
 	self.go_to_next_piece();
 	
-	// TODO: possibly refactor out scoring calculations into their own method
-	
 	let setRows = self.set_row_count();
 	if setRows > 0 {
-	  self.score += (get_base_score(setRows) + get_level_score(self.level)) * self.bonus;
-	  if self.bonus == 1 {
-	    self.bonus = 2 * setRows;
-	  } else {
-	    self.bonus += 2 * setRows;
-	  }
-	  self.bonusDrop = bonus_drop_reset;
-	  
 	  self.erase_set_rows();
 	  self.state = Clear;
-	} else {
-	  // TODO: update number of dropped pieces, bump level if needed
-	  if self.bonus > 1 {
-	    self.bonusDrop -= 1;
-	    if self.bonusDrop == 0 {
-	      self.bonus -= 1;
-	      self.bonusDrop = bonus_drop_reset;
-	    }	  
-	  }
 	}
+	
+	self.scoring.update(setRows);
+	
 	Some(1000)
       }
     }
@@ -1045,6 +1094,8 @@ fn main() {
   let display = graphics::StandardDisplay;
   display.init();
   
+  let mut scoring = scoring::new();
+  
   let mut pieceGetter = piece_getter::new();
   let firstPiece = pieceGetter.next_piece();
   let secondPiece = pieceGetter.next_piece();
@@ -1053,10 +1104,7 @@ fn main() {
   
   let mut game = TetrisGame{display:     &display,
                             pieceGetter: pieceGetter,
-                            level:       1,
-                            score:       0,
-                            bonus:       1,
-                            bonusDrop:   bonus_drop_reset,
+                            scoring:     scoring,
                             state:       Fall,
                             piece:       firstPiece,
                             nextPiece:   secondPiece,
