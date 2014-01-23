@@ -257,6 +257,53 @@ mod graphics {
     }
   }
   
+  trait Converter {
+    fn to_terminal(&self, row: i8, col: i8) -> (i8, i8);
+  }
+  
+  // game level rows for the information area (displaying score info, next piece)
+  static levelRow: i8 = 2;
+  static bonusRow: i8 = 4;
+  static scoreRow: i8 = 6;
+  static nextRow: i8 = 10;
+  
+  // base game level column for the information area
+  // Display implemenations may use an offset from this
+  static baseInfoCol: i8 = 14;
+  
+  fn init<T: Converter>(converter: T, terminalRows: i8, terminalCols: i8, terminalRowOffset: i8, terminalColumnOffset: i8, infoCol: i8) {
+      clear_terminal();
+      hide_cursor();
+      print_borders(terminalRows, terminalCols, terminalRowOffset, terminalColumnOffset);
+      
+      move_cursor(converter.to_terminal(levelRow, infoCol));
+      print("Level:");
+      
+      move_cursor(converter.to_terminal(bonusRow, infoCol));
+      print("Bonus:");
+      
+      move_cursor(converter.to_terminal(scoreRow, infoCol));
+      print("Score:");
+      
+      move_cursor(converter.to_terminal(nextRow, infoCol));
+      print("Next:");
+      
+      stdio::flush();
+  }
+  
+  fn print_score<T: Converter>(converter: T, infoCol: i8, score: Score) {
+      reset_graphics();
+      
+      move_cursor(converter.to_terminal(levelRow, infoCol));
+      print!("{}   ", score.level);
+      
+      move_cursor(converter.to_terminal(bonusRow, infoCol));
+      print!("{}    ", score.bonus);
+      
+      move_cursor(converter.to_terminal(scoreRow, infoCol));
+      print!("{}    ", score.score);
+  }
+  
   pub trait Display {
     fn init(&self);
     fn print_score(&self, score: Score);
@@ -311,13 +358,6 @@ mod graphics {
       self.print_next_piece(&erase);
     }
   }
-
-  // game level row/column for the information area (displaying score info, next piece)
-  static infoCol: i8 = 14;
-  static levelRow: i8 = 2;
-  static bonusRow: i8 = 4;
-  static scoreRow: i8 = 6;
-  static nextRow: i8 = 10;
   
   pub struct StandardDisplay;
 
@@ -335,38 +375,19 @@ mod graphics {
     }
   }
   
+  impl Converter for StandardDisplay {
+    fn to_terminal(&self, row: i8, col: i8) -> (i8, i8) {
+      StandardDisplay::to_terminal(row, col)
+    }
+  }
+  
   impl Display for StandardDisplay {
     fn init(&self) {
-      clear_terminal();
-      hide_cursor();
-      print_borders(20, 20, stdRowOffset, stdColumnOffset);
-      
-      move_cursor(StandardDisplay::to_terminal(levelRow, infoCol));
-      print("Level:");
-      
-      move_cursor(StandardDisplay::to_terminal(bonusRow, infoCol));
-      print("Bonus:");
-      
-      move_cursor(StandardDisplay::to_terminal(scoreRow, infoCol));
-      print("Score:");
-      
-      move_cursor(StandardDisplay::to_terminal(nextRow, infoCol));
-      print("Next:");
-      
-      self.flush();
+      init(*self, 20, 20, stdRowOffset, stdColumnOffset, baseInfoCol);
     }
 
     fn print_score(&self, score: Score) {
-      reset_graphics();
-      
-      move_cursor(StandardDisplay::to_terminal(levelRow, infoCol + 4));
-      print!("{}   ", score.level);
-      
-      move_cursor(StandardDisplay::to_terminal(bonusRow, infoCol + 4));
-      print!("{}    ", score.bonus);
-      
-      move_cursor(StandardDisplay::to_terminal(scoreRow, infoCol + 4));
-      print!("{}    ", score.score);
+      print_score(*self, baseInfoCol + 4, score);
     }
     
     fn print_block(&self, block: Block) {
@@ -380,11 +401,11 @@ mod graphics {
     
     fn print_next_piece(&self, piece: &Piece) {
       let colOffset = match piece.ty {
-	O | S => 12,
-	_     => 13
+	O | S => 13,
+	_     => 14
       };
       for block in piece.blocks.iter() {
-	move_cursor(StandardDisplay::to_terminal(10 + block.row, colOffset + block.column));
+	move_cursor(StandardDisplay::to_terminal(nextRow + block.row, colOffset + block.column));
 	set_background_color(block.color as u8);
 	print("  ");
       }
@@ -404,45 +425,26 @@ mod graphics {
     }
   }
   
+  impl Converter for DoubleDisplay {
+    fn to_terminal(&self, row: i8, col: i8) -> (i8, i8) {
+      DoubleDisplay::to_terminal(row, col)
+    }
+  }
+  
   impl Display for DoubleDisplay {
     fn init(&self) {
-      clear_terminal();
-      hide_cursor();
-      print_borders(40, 40, dblRowOffset, dblColumnOffset);
-      
-      move_cursor((2 * levelRow + dblRowOffset, 4 * (infoCol - 1) - 3 + dblBorderColumns + dblColumnOffset));
-      print("Level:");
-      
-      move_cursor((2 * bonusRow + dblRowOffset, 4 * (infoCol - 1) - 3 + dblBorderColumns + dblColumnOffset));
-      print("Bonus:");
-      
-      move_cursor((2 * scoreRow + dblRowOffset, 4 * (infoCol - 1) - 3 + dblBorderColumns + dblColumnOffset));
-      print("Score:");
-      
-      move_cursor((2 * nextRow + dblRowOffset, 4 * (infoCol - 1) - 3 + dblBorderColumns + dblColumnOffset));
-      print("Next:");
-      
-      self.flush();
+      init(*self, 40, 40, dblRowOffset, dblColumnOffset, baseInfoCol - 1);
     }
   
     fn print_score(&self, score: Score) {
-      reset_graphics();
-      
-      move_cursor((2 * levelRow + dblRowOffset, 4 * (infoCol + 1) - 3 + dblBorderColumns + dblColumnOffset));
-      print!("{}   ", score.level);
-      
-      move_cursor((2 * bonusRow + dblRowOffset, 4 * (infoCol + 1) - 3 + dblBorderColumns + dblColumnOffset));
-      print!("{}    ", score.bonus);
-      
-      move_cursor((2 * scoreRow + dblRowOffset, 4 * (infoCol + 1) - 3 + dblBorderColumns + dblColumnOffset));
-      print!("{}    ", score.score);
+      print_score(*self, baseInfoCol + 1, score);
     }
   
     fn print_block(&self, block: Block) {
        if block.row < 1 || block.column < 1 {
 	return;
       }
-      move_cursor((2 * block.row + dblRowOffset, 4 * block.column - 3 + dblBorderColumns + dblColumnOffset));
+      move_cursor(DoubleDisplay::to_terminal(block.row, block.column));
       set_background_color(block.color as u8);
       print("    ");
       move_cursor((2 * block.row - 1 + dblRowOffset, 4 * block.column - 3 + dblBorderColumns + dblColumnOffset));
@@ -455,15 +457,14 @@ mod graphics {
 	_     => 11
       };
       for block in piece.blocks.iter() {
-        move_cursor((2 * (10 + block.row) + dblRowOffset, 4 * (colOffset + block.column) - 3 + dblBorderColumns + dblColumnOffset));
+        move_cursor(DoubleDisplay::to_terminal(nextRow + block.row, colOffset + block.column));
 	set_background_color(block.color as u8);
         print("    ");
-	move_cursor((2 * (10 + block.row) - 1 + dblRowOffset, 4 * (colOffset + block.column) - 3 + dblBorderColumns + dblColumnOffset));
+	move_cursor((2 * (nextRow + block.row) - 1 + dblRowOffset, 4 * (colOffset + block.column) - 3 + dblBorderColumns + dblColumnOffset));
 	print("    ");
       }
     }
   }
-  
 }
 
 mod pieces {
@@ -1208,7 +1209,7 @@ fn main() {
   //       -option to display help
   //       -option to start with double display
   
-  let display = graphics::DoubleDisplay;
+  let display = graphics::StandardDisplay;
   display.init();
   
   let mut scoring = scoring::new();
