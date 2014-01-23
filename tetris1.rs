@@ -190,7 +190,7 @@ mod input_reader {
 }
 
 mod graphics {
-  use std::io::stdio::flush;
+  use std::io::stdio;
   use pieces::{Block, Black, Piece, O, S};
   use scoring::Score;
   
@@ -259,12 +259,24 @@ mod graphics {
   
   pub trait Display {
     fn init(&self);
-    fn close(&self);
-    fn flush(&self);
     fn print_score(&self, score: Score);
     fn print_block(&self, block: Block);
-    fn print_piece(&self, piece: &Piece);
     fn print_next_piece(&self, piece: &Piece);
+
+    fn print_piece(&self, piece: &Piece) {
+      for block in piece.blocks.iter() {
+	self.print_block(*block);
+      }
+    }
+    
+    fn close(&self) {
+      reset_graphics();
+      show_cursor();
+    }
+    
+    fn flush(&self) {
+      stdio::flush();
+    }
     
     fn erase_block(&self, row: i8, col: i8) {
       self.print_block(Block{row: row, column: col, color: Black});
@@ -298,7 +310,6 @@ mod graphics {
       };
       self.print_next_piece(&erase);
     }
-
   }
 
   // game level row/column for the information area (displaying score info, next piece)
@@ -342,18 +353,9 @@ mod graphics {
       move_cursor(StandardDisplay::to_terminal(nextRow, infoCol));
       print("Next:");
       
-      flush();
+      self.flush();
     }
-    
-    fn close(&self) {
-      reset_graphics();
-      show_cursor();
-    }
-    
-    fn flush(&self) {
-      flush();
-    }
-    
+
     fn print_score(&self, score: Score) {
       reset_graphics();
       
@@ -376,12 +378,6 @@ mod graphics {
       print("  ");
     }
     
-    fn print_piece(&self, piece: &Piece) {
-      for block in piece.blocks.iter() {
-	self.print_block(*block);
-      }
-    }
-    
     fn print_next_piece(&self, piece: &Piece) {
       let colOffset = match piece.ty {
 	O | S => 12,
@@ -394,35 +390,80 @@ mod graphics {
       }
     }
   }
-  /*
+  
   pub struct DoubleDisplay;
   
   static dblRowOffset: i8 = 2i8;
   static dblColumnOffset: i8 = 30i8;
   static dblBorderColumns: i8 = 2i8;
   
+  impl DoubleDisplay {
+    #[inline(always)]
+    fn to_terminal(row: i8, col: i8) -> (i8, i8) {
+      (2 * row + dblRowOffset, 4 * col - 3 + dblBorderColumns + dblColumnOffset)
+    }
+  }
+  
   impl Display for DoubleDisplay {
+    fn init(&self) {
+      clear_terminal();
+      hide_cursor();
+      print_borders(40, 40, dblRowOffset, dblColumnOffset);
+      
+      move_cursor((2 * levelRow + dblRowOffset, 4 * (infoCol - 1) - 3 + dblBorderColumns + dblColumnOffset));
+      print("Level:");
+      
+      move_cursor((2 * bonusRow + dblRowOffset, 4 * (infoCol - 1) - 3 + dblBorderColumns + dblColumnOffset));
+      print("Bonus:");
+      
+      move_cursor((2 * scoreRow + dblRowOffset, 4 * (infoCol - 1) - 3 + dblBorderColumns + dblColumnOffset));
+      print("Score:");
+      
+      move_cursor((2 * nextRow + dblRowOffset, 4 * (infoCol - 1) - 3 + dblBorderColumns + dblColumnOffset));
+      print("Next:");
+      
+      self.flush();
+    }
+  
+    fn print_score(&self, score: Score) {
+      reset_graphics();
+      
+      move_cursor((2 * levelRow + dblRowOffset, 4 * (infoCol + 1) - 3 + dblBorderColumns + dblColumnOffset));
+      print!("{}   ", score.level);
+      
+      move_cursor((2 * bonusRow + dblRowOffset, 4 * (infoCol + 1) - 3 + dblBorderColumns + dblColumnOffset));
+      print!("{}    ", score.bonus);
+      
+      move_cursor((2 * scoreRow + dblRowOffset, 4 * (infoCol + 1) - 3 + dblBorderColumns + dblColumnOffset));
+      print!("{}    ", score.score);
+    }
+  
     fn print_block(&self, block: Block) {
        if block.row < 1 || block.column < 1 {
 	return;
       }
-      move_cursor(2 * block.row + dblRowOffset, 4 * block.column - 3 + dblBorderColumns + dblColumnOffset);
+      move_cursor((2 * block.row + dblRowOffset, 4 * block.column - 3 + dblBorderColumns + dblColumnOffset));
       set_background_color(block.color as u8);
       print("    ");
-      move_cursor(2 * block.row - 1 + dblRowOffset, 4 * block.column - 3 + dblBorderColumns + dblColumnOffset);
+      move_cursor((2 * block.row - 1 + dblRowOffset, 4 * block.column - 3 + dblBorderColumns + dblColumnOffset));
       print("    ");
     }
     
-    fn init(&self) {
-      clear_display();
-      print_borders(40, 40, dblRowOffset, dblColumnOffset);
-    }
-    
-    fn close(&self) {
-      reset_graphics();
+    fn print_next_piece(&self, piece: &Piece) {
+      let colOffset = match piece.ty {
+	O | S => 10,
+	_     => 11
+      };
+      for block in piece.blocks.iter() {
+        move_cursor((2 * (10 + block.row) + dblRowOffset, 4 * (colOffset + block.column) - 3 + dblBorderColumns + dblColumnOffset));
+	set_background_color(block.color as u8);
+        print("    ");
+	move_cursor((2 * (10 + block.row) - 1 + dblRowOffset, 4 * (colOffset + block.column) - 3 + dblBorderColumns + dblColumnOffset));
+	print("    ");
+      }
     }
   }
-  */
+  
 }
 
 mod pieces {
@@ -1089,7 +1130,7 @@ impl<'a> TetrisGame<'a> {
 }
 
 impl<'a> GameHandler for TetrisGame<'a> {
-    fn init(&self) {
+  fn init(&self) {
     self.display.print_next_piece(&self.nextPiece);
     self.display.print_score(self.scoring.get_score());
     self.display.flush();
@@ -1167,7 +1208,7 @@ fn main() {
   //       -option to display help
   //       -option to start with double display
   
-  let display = graphics::StandardDisplay;
+  let display = graphics::DoubleDisplay;
   display.init();
   
   let mut scoring = scoring::new();
