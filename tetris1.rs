@@ -197,7 +197,7 @@ mod graphics {
   fn csi() {
     print!("{}[", '\x1B');
   }
-
+  
   fn clear_terminal() {
     csi();
     print("2J");
@@ -208,6 +208,16 @@ mod graphics {
     print("0m");
   }
 
+  fn hide_cursor() {
+    csi();
+    print("?25l");
+  }
+  
+  fn show_cursor() {
+    csi();
+    print("?25h");
+  }
+  
   fn move_cursor(rowCol: (i8, i8)) {
     let (row, col) = rowCol;
     csi();
@@ -317,6 +327,7 @@ mod graphics {
   impl Display for StandardDisplay {
     fn init(&self) {
       clear_terminal();
+      hide_cursor();
       print_borders(20, 20, stdRowOffset, stdColumnOffset);
       
       move_cursor(StandardDisplay::to_terminal(levelRow, infoCol));
@@ -336,6 +347,7 @@ mod graphics {
     
     fn close(&self) {
       reset_graphics();
+      show_cursor();
     }
     
     fn flush(&self) {
