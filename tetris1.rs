@@ -809,7 +809,7 @@ mod scoring {
   }
   
   // control how many pieces drop without completing any rows before the bonus is decremented
-  static bonus_drop_reset: int = 2;
+  static bonus_drop_reset: int = 1;
   
   impl StdScoring {
     fn update_some_set_rows(&mut self, setRows: int) -> Score {
