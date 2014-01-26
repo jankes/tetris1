@@ -290,6 +290,12 @@ mod graphics {
       stdio::flush();
   }
   
+  fn close<T: Converter>(converter: T, cursorMoveGameRow: i8) {
+    reset_graphics();
+    show_cursor();
+    move_cursor(converter.to_terminal(cursorMoveGameRow, 1));
+  }
+  
   fn print_score<T: Converter>(converter: T, infoCol: i8, score: Score) {
       reset_graphics();
       
@@ -305,6 +311,7 @@ mod graphics {
   
   pub trait Display {
     fn init(&self);
+    fn close(&self);
     fn print_score(&self, score: Score);
     fn print_block(&self, block: Block);
     fn print_next_piece(&self, piece: &Piece);
@@ -314,12 +321,7 @@ mod graphics {
 	self.print_block(*block);
       }
     }
-    
-    fn close(&self) {
-      reset_graphics();
-      show_cursor();
-    }
-    
+        
     fn flush(&self) {
       stdio::flush();
     }
@@ -385,6 +387,10 @@ mod graphics {
       init(*self, 20, 20, stdRowOffset, stdColumnOffset, baseInfoCol);
     }
 
+    fn close(&self) {
+      close(*self, 23);
+    }
+    
     fn print_score(&self, score: Score) {
       print_score(*self, baseInfoCol + 4, score);
     }
@@ -433,6 +439,10 @@ mod graphics {
   impl Display for DoubleDisplay {
     fn init(&self) {
       init(*self, 40, 40, dblRowOffset, dblColumnOffset, baseInfoCol - 1);
+    }
+  
+    fn close(&self) {
+      close(*self, 22);
     }
   
     fn print_score(&self, score: Score) {
