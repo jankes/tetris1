@@ -1,6 +1,7 @@
 extern mod extra;
 use extra::time;
 use std::libc::c_int;
+use std::os;
 
 use pieces::{Block, Piece};
 use graphics::Display;
@@ -92,23 +93,21 @@ mod terminal_control {
   }
   
   // debugging/testing purposes
-  /*
-  pub fn print_terminal_settings() {
-    let (ios, _) = get_terminal_attr();
-    println!("iflag = {}", ios.c_iflag);
-    println!("oflag = {}", ios.c_oflag);
-    println!("cflag = {}", ios.c_cflag);
-    println!("lflag = {}", ios.c_lflag);
-    println!("control characters:");
-    for c in ios.c_cc.iter() {
-      println!("{}", *c);
-    }
-    println("unknown:");
-    for a in ios.padding.iter() {
-      println!("{}", *a);
-    }  
-  }
-  */
+//   pub fn print_terminal_settings() {
+//     let (ios, _) = get_terminal_attr();
+//     println!("iflag = {}", ios.c_iflag);
+//     println!("oflag = {}", ios.c_oflag);
+//     println!("cflag = {}", ios.c_cflag);
+//     println!("lflag = {}", ios.c_lflag);
+//     println!("control characters:");
+//     for c in ios.c_cc.iter() {
+//       println!("{}", *c);
+//     }
+//     println("unknown:");
+//     for a in ios.padding.iter() {
+//       println!("{}", *a);
+//     }  
+//   }
 }
 
 mod input_reader {
@@ -1202,14 +1201,9 @@ fn main_loop<T: GameHandler>(handler: &mut T) {
   }
 }
 
-fn main() {
+fn run_game(display: &Display) {
   let restorer = terminal_control::set_terminal_raw_mode();
   
-  // TODO: command line agument parsing
-  //       -option to display help
-  //       -option to start with double display
-  
-  let display = graphics::StandardDisplay;
   display.init();
   
   let mut scoring = scoring::new();
@@ -1220,7 +1214,7 @@ fn main() {
 
   display.print_next_piece(&secondPiece);
   
-  let mut game = TetrisGame{display:     &display,
+  let mut game = TetrisGame{display:     display,
                             pieceGetter: pieceGetter,
                             scoring:     scoring,
                             state:       Fall,
@@ -1233,4 +1227,41 @@ fn main() {
   display.close();
   restorer.restore();
 
+}
+
+fn display_help() {
+  println("A simple game of Tetris implemented in Rust");
+  println("");
+  println("Options:");
+  println("--help or -h             |  show this help");
+  println("--display=double or -d2  |  run in double display mode");
+  println("");
+  println("Controls:");
+  println("left arrow     | move piece left");
+  println("right arrow    | move piece right");
+  println("up arrow       | rotate piece");
+  println("down arrow     | quick drop piece");
+  println("any other key  | exit the game");
+  println("");
+  println("Run this program with no arguments to start a game in standard display mode");
+}
+
+fn main() {
+  let args = os::args();  
+  
+  // There's always at least one argument (the program's name)
+  // If the program is run with no extra argument's passed by the user, just run the game in standard display mode
+  //
+  // Otherwise there are at least two arguments, handle double display or help argument.
+  // If we don't understand the argument, just show the help
+  match args.len() {
+    1 => run_game(&graphics::StandardDisplay),
+    _ => {
+      match args[1] {
+	~"--help" | ~"-h"            => display_help(),
+	~"--display=double" | ~"-d2" => run_game(&graphics::DoubleDisplay),
+	_                            => display_help()
+      }
+    }
+  }
 }
