@@ -1,15 +1,6 @@
 extern mod extra;
-use extra::time;
 use std::io::{print, println};
-use std::libc::c_int;
 use std::os;
-
-use pieces::{Block, Piece};
-use graphics::Display;
-use piece_getter::{PieceGetter, new};
-use scoring::Scoring;
-use score_keeper::ScoreKeeper;
-use set_blocks::SetBlocks;
 
 mod terminal_control {
   use std::libc::c_int;
@@ -923,364 +914,382 @@ mod score_keeper {
   }
 }
 
-trait GameHandler {
-  fn init(&self);
-  fn handle_step(&mut self) -> Option<c_int>;
-  fn handle_input(&mut self, input: input_reader::ReadResult);
-}
-
-enum State {
-  Fall = 0, Clear, GameOver
-}
-
-struct TetrisGame<'a> {
-  display:     &'a Display,
-  pieceGetter: &'a mut PieceGetter,
-  scoring:     &'a mut Scoring,
-  scoreKeeper: &'a ScoreKeeper,
-  state:       State,
-  piece:       Piece,
-  nextPiece:   Piece,
-  setBlocks:   [Option<Block>, ..200]
-}
-
-impl<'a> TetrisGame<'a> {  
-  fn collides_with_set_blocks(&self, piece: &Piece) -> bool {
-    for block in piece.blocks.iter() {
-      if self.setBlocks.has_block(block.row, block.column) {
-	return true;
-      }
-    }
-    return false;
-  }
+mod tetris {
+  use extra::time;
+  use std::libc::c_int;
   
-  fn in_bounds_bottom_row(piece: &Piece) -> bool {
-    for block in piece.blocks.iter() {
-      if block.row > 20 {
-	return false;
-      }
-    }
-    return true;
-  }
+  use terminal_control;
+  use input_reader;
+  use pieces;
+  use pieces::{Block, Piece};
+  use graphics::Display;
+  use piece_getter;
+  use piece_getter::PieceGetter;
+  use scoring;
+  use scoring::Scoring;
+  use score_keeper;
+  use score_keeper::ScoreKeeper;
+  use set_blocks::SetBlocks;
   
-  fn in_bounds_cols(piece: &Piece) -> bool {
-    for block in piece.blocks.iter() {
-      if block.column < 1 || block.column > 10 {
-	return false;
-      }
-    }
-    return true;
-  }
-  
-  fn all_in_bounds(piece: &Piece) -> bool {
-    for block in piece.blocks.iter() {
-      if block.row < 1 || block.row > 20 || block.column < 1 || block.column > 10 {
-	return false;
-      }
-    }
-    return true;
-  }
-  
-  fn can_move_rows(&self, piece: &Piece, rowOffset: i8) -> bool {
-    let moved =  pieces::translate(piece, rowOffset, 0);
-    return TetrisGame::in_bounds_bottom_row(&moved) && !self.collides_with_set_blocks(&moved);
+  trait GameHandler {
+    fn init(&self);
+    fn handle_step(&mut self) -> Option<c_int>;
+    fn handle_input(&mut self, input: input_reader::ReadResult);
   }
 
-  fn is_row_set(&self, row: i8) -> bool {
-    let mut col = 1;
-    while self.setBlocks.has_block(row, col) {
-      col += 1;
-    }
-    return col == 11i8;
+  enum State {
+    Fall = 0, Clear, GameOver
   }
-  
-  fn set_row_count(&self) -> int {
-    let mut count = 0;
-    for row in range(1, 21i8) {
-      if self.is_row_set(row) {
-	count += 1;
+
+  struct TetrisGame<'a> {
+    display:     &'a Display,
+    pieceGetter: &'a mut PieceGetter,
+    scoring:     &'a mut Scoring,
+    scoreKeeper: &'a ScoreKeeper,
+    state:       State,
+    piece:       Piece,
+    nextPiece:   Piece,
+    setBlocks:   [Option<Block>, ..200]
+  }
+
+  impl<'a> TetrisGame<'a> {  
+    fn collides_with_set_blocks(&self, piece: &Piece) -> bool {
+      for block in piece.blocks.iter() {
+	if self.setBlocks.has_block(block.row, block.column) {
+	  return true;
+	}
       }
+      return false;
     }
-    return count;
-  }
-  
-  fn erase_row(&self, row: i8) {
-    for col in range(1, 11i8) {
-      self.display.erase_block(row, col);
-    }
-  }
-  
-  fn erase_set_rows(&self) {
-    for row in range(1, 21i8) {
-      if self.is_row_set(row) {
-	self.erase_row(row);
+    
+    fn in_bounds_bottom_row(piece: &Piece) -> bool {
+      for block in piece.blocks.iter() {
+	if block.row > 20 {
+	  return false;
+	}
       }
+      return true;
     }
-  }
-  
-  fn erase_all_set_blocks(&self) {
-    for row in range(1, 21i8) {
+    
+    fn in_bounds_cols(piece: &Piece) -> bool {
+      for block in piece.blocks.iter() {
+	if block.column < 1 || block.column > 10 {
+	  return false;
+	}
+      }
+      return true;
+    }
+    
+    fn all_in_bounds(piece: &Piece) -> bool {
+      for block in piece.blocks.iter() {
+	if block.row < 1 || block.row > 20 || block.column < 1 || block.column > 10 {
+	  return false;
+	}
+      }
+      return true;
+    }
+    
+    fn can_move_rows(&self, piece: &Piece, rowOffset: i8) -> bool {
+      let moved =  pieces::translate(piece, rowOffset, 0);
+      return TetrisGame::in_bounds_bottom_row(&moved) && !self.collides_with_set_blocks(&moved);
+    }
+
+    fn is_row_set(&self, row: i8) -> bool {
+      let mut col = 1;
+      while self.setBlocks.has_block(row, col) {
+	col += 1;
+      }
+      return col == 11i8;
+    }
+    
+    fn set_row_count(&self) -> int {
+      let mut count = 0;
+      for row in range(1, 21i8) {
+	if self.is_row_set(row) {
+	  count += 1;
+	}
+      }
+      return count;
+    }
+    
+    fn erase_row(&self, row: i8) {
       for col in range(1, 11i8) {
-	match self.setBlocks.get(row, col) {
-	  None    => (),
-	  Some(_) => self.display.erase_block(row, col)
+	self.display.erase_block(row, col);
+      }
+    }
+    
+    fn erase_set_rows(&self) {
+      for row in range(1, 21i8) {
+	if self.is_row_set(row) {
+	  self.erase_row(row);
 	}
       }
     }
-  }
+    
+    fn erase_all_set_blocks(&self) {
+      for row in range(1, 21i8) {
+	for col in range(1, 11i8) {
+	  match self.setBlocks.get(row, col) {
+	    None    => (),
+	    Some(_) => self.display.erase_block(row, col)
+	  }
+	}
+      }
+    }
 
-  fn print_set_blocks(&self) {
-    for row in range(1, 21i8) {
+    fn print_set_blocks(&self) {
+      for row in range(1, 21i8) {
+	for col in range(1, 11i8) {
+	  match self.setBlocks.get(row, col) {
+	    None        => (),
+	    Some(block) => self.display.print_block(block),
+	  }
+	}
+      }
+      self.display.flush();
+    }
+    
+    fn set_piece(&mut self) {
+      for block in self.piece.blocks.iter() {
+	self.setBlocks.set(*block);
+      }
+    }
+    
+    fn clear_row(&mut self, row: i8) {
       for col in range(1, 11i8) {
-	match self.setBlocks.get(row, col) {
-	  None        => (),
-	  Some(block) => self.display.print_block(block),
+	let mut r = row;
+	while r >= 2 {
+	  match self.setBlocks.get(r - 1, col) {
+	    None        => self.setBlocks.remove(r, col),
+	    Some(block) => self.setBlocks.set(Block{row: r, column: col, color: block.color})
+	  }
+	  r -= 1;
+	}
+      }
+      for col in range(1, 11i8) {
+	self.setBlocks.remove(1, col);
+      }
+    }
+    
+    fn clear_set_rows(&mut self) {
+      let mut row = 20;
+      loop {
+	while row >= 1 && !self.is_row_set(row) {
+	  row -= 1;
+	}
+	if row == 0 {
+	  break;
+	} else {
+	  self.clear_row(row);      
 	}
       }
     }
-    self.display.flush();
-  }
-  
-  fn set_piece(&mut self) {
-    for block in self.piece.blocks.iter() {
-      self.setBlocks.set(*block);
+    
+    fn update_piece(&mut self, next: &Piece) {
+      self.display.erase_piece(&self.piece);
+      
+      self.piece = *next;
+      
+      self.display.print_piece(&self.piece);
     }
-  }
-  
-  fn clear_row(&mut self, row: i8) {
-    for col in range(1, 11i8) {
-      let mut r = row;
-      while r >= 2 {
-	match self.setBlocks.get(r - 1, col) {
-	  None        => self.setBlocks.remove(r, col),
-	  Some(block) => self.setBlocks.set(Block{row: r, column: col, color: block.color})
+    
+    fn go_to_next_piece(&mut self) {
+	self.set_piece();
+	
+	self.display.erase_next_piece(&self.nextPiece);
+	
+	self.piece = self.nextPiece;
+	self.nextPiece = self.pieceGetter.next_piece();
+	
+	self.display.print_next_piece(&self.nextPiece);
+    }
+    
+    fn step_fall(&mut self) -> Option<c_int> {
+      match self.can_move_rows(&self.piece, 1) {
+	true  => {
+	  let translated = pieces::translate(&self.piece, 1, 0);
+	  self.update_piece(&translated);
+	  
+	  Some(self.scoring.get_time())
 	}
-	r -= 1;
+	false => {
+	  if !TetrisGame::all_in_bounds(&self.piece) {
+	    self.state = GameOver;
+	    return Some(500);
+	  }
+	  
+	  self.go_to_next_piece();
+	  
+	  let setRows = self.set_row_count();
+	  if setRows > 0 {
+	    self.erase_set_rows();
+	    self.state = Clear;
+	  }
+	  
+	  let s = self.scoring.update(setRows);
+	  self.display.print_score(s);
+	  
+	  Some(1000)
+	}
       }
     }
-    for col in range(1, 11i8) {
-      self.setBlocks.remove(1, col);
+    
+    fn step_clear(&mut self) -> Option<c_int> {
+      self.erase_all_set_blocks();
+      
+      self.clear_set_rows();
+      
+      self.print_set_blocks();
+      
+      self.state = Fall;
+      
+      Some(1000)
     }
-  }
-  
-  fn clear_set_rows(&mut self) {
-    let mut row = 20;
-    loop {
-      while row >= 1 && !self.is_row_set(row) {
-	row -= 1;
-      }
-      if row == 0 {
-	break;
+    
+    fn step_game_over(&mut self) -> Option<c_int> {
+      self.scoreKeeper.store_score(&time::now(), self.scoring.get_score());
+      None
+    }
+    
+    fn rotate(&mut self, clockwise: bool) {
+      let rotated = if clockwise {
+	pieces::rotate_clockwise(&self.piece)
       } else {
-	self.clear_row(row);      
+	pieces::rotate_counter_clockwise(&self.piece)
+      };
+      
+      if !TetrisGame::in_bounds_cols(&rotated) || self.collides_with_set_blocks(&rotated) {
+	return;
       }
+      
+      self.update_piece(&rotated);
+    }
+    
+    fn quick_drop(&mut self) {
+      if !self.can_move_rows(&self.piece, 1) {
+	return;
+      }
+      
+      let mut translated = pieces::translate(&self.piece, 1, 0);
+      while self.can_move_rows(&translated, 1) {
+	translated = pieces::translate(&translated, 1, 0);
+      }
+      
+      self.update_piece(&translated);
+    }
+    
+    fn translate_cols(&mut self, columnOffset: i8) {
+      let translated = pieces::translate(&self.piece, 0, columnOffset);
+      
+      if !TetrisGame::in_bounds_cols(&translated) || self.collides_with_set_blocks(&translated) {
+	return;
+      }
+      
+      self.update_piece(&translated);
     }
   }
-  
-  fn update_piece(&mut self, next: &Piece) {
-    self.display.erase_piece(&self.piece);
-    
-    self.piece = *next;
-    
-    self.display.print_piece(&self.piece);
-  }
-  
-  fn go_to_next_piece(&mut self) {
-      self.set_piece();
-      
-      self.display.erase_next_piece(&self.nextPiece);
-      
-      self.piece = self.nextPiece;
-      self.nextPiece = self.pieceGetter.next_piece();
-      
+
+  impl<'a> GameHandler for TetrisGame<'a> {
+    fn init(&self) {
       self.display.print_next_piece(&self.nextPiece);
-  }
-  
-  fn step_fall(&mut self) -> Option<c_int> {
-    match self.can_move_rows(&self.piece, 1) {
-      true  => {
-	let translated = pieces::translate(&self.piece, 1, 0);
-	self.update_piece(&translated);
-	
-	Some(self.scoring.get_time())
+      self.display.print_score(self.scoring.get_score());
+      self.display.flush();
+    }
+    
+    fn handle_step(&mut self) -> Option<c_int> {    
+      let stepTime = 
+      match self.state {
+	Fall     => self.step_fall(),
+	Clear    => self.step_clear(),
+	GameOver => self.step_game_over()
+      };
+      self.display.flush();
+      stepTime
+    }
+    
+    fn handle_input(&mut self, input: input_reader::ReadResult) {
+      use input_reader::{Up, Down, Right, Left};
+      match input {
+	Up    => self.rotate(true),
+	Down  => self.quick_drop(),
+	Right => self.translate_cols(1),
+	Left  => self.translate_cols(-1),
+	_     => fail!("unknown direction")
       }
-      false => {
-	if !TetrisGame::all_in_bounds(&self.piece) {
-	  self.state = GameOver;
-	  return Some(500);
-	}
-	
-	self.go_to_next_piece();
-	
-	let setRows = self.set_row_count();
-	if setRows > 0 {
-	  self.erase_set_rows();
-	  self.state = Clear;
-	}
-	
-	let s = self.scoring.update(setRows);
-	self.display.print_score(s);
-	
-	Some(1000)
-      }
+      self.display.flush();
     }
   }
-  
-  fn step_clear(&mut self) -> Option<c_int> {
-    self.erase_all_set_blocks();
-    
-    self.clear_set_rows();
-    
-    self.print_set_blocks();
-    
-    self.state = Fall;
-    
-    Some(1000)
-  }
-  
-  fn step_game_over(&mut self) -> Option<c_int> {
-    self.scoreKeeper.store_score(&time::now(), self.scoring.get_score());
-    None
-  }
-  
-  fn rotate(&mut self, clockwise: bool) {
-    let rotated = if clockwise {
-      pieces::rotate_clockwise(&self.piece)
-    } else {
-      pieces::rotate_counter_clockwise(&self.piece)
-    };
-    
-    if !TetrisGame::in_bounds_cols(&rotated) || self.collides_with_set_blocks(&rotated) {
-      return;
-    }
-    
-    self.update_piece(&rotated);
-  }
-  
-  fn quick_drop(&mut self) {
-    if !self.can_move_rows(&self.piece, 1) {
-      return;
-    }
-    
-    let mut translated = pieces::translate(&self.piece, 1, 0);
-    while self.can_move_rows(&translated, 1) {
-      translated = pieces::translate(&translated, 1, 0);
-    }
-    
-    self.update_piece(&translated);
-  }
-  
-  fn translate_cols(&mut self, columnOffset: i8) {
-    let translated = pieces::translate(&self.piece, 0, columnOffset);
-    
-    if !TetrisGame::in_bounds_cols(&translated) || self.collides_with_set_blocks(&translated) {
-      return;
-    }
-    
-    self.update_piece(&translated);
-  }
-}
 
-impl<'a> GameHandler for TetrisGame<'a> {
-  fn init(&self) {
-    self.display.print_next_piece(&self.nextPiece);
-    self.display.print_score(self.scoring.get_score());
-    self.display.flush();
-  }
-  
-  fn handle_step(&mut self) -> Option<c_int> {    
-    let stepTime = 
-    match self.state {
-      Fall     => self.step_fall(),
-      Clear    => self.step_clear(),
-      GameOver => self.step_game_over()
-    };
-    self.display.flush();
-    stepTime
-  }
-  
-  fn handle_input(&mut self, input: input_reader::ReadResult) {
-    use input_reader::{Up, Down, Right, Left};
-    match input {
-      Up    => self.rotate(true),
-      Down  => self.quick_drop(),
-      Right => self.translate_cols(1),
-      Left  => self.translate_cols(-1),
-      _     => fail!("unknown direction")
-    }
-    self.display.flush();
-  }
-}
-
-fn main_loop<T: GameHandler>(handler: &mut T) {
-  use input_reader::{poll_stdin, read_stdin, Other, PollReady, PollTimeout};
-  
-  handler.init();
-  
-  // milliseconds between piece drop steps
-  let mut stepTimeMs: c_int = 1000;
-  
-  // milliseconds for poll timeout
-  let mut pollTimeMs = stepTimeMs;
-  
-  // nanoseconds since the last drop step
-  let mut sinceLastStepNs = 0u64;
-  
-  loop {
-    let t = time::precise_time_ns();
-    match poll_stdin(pollTimeMs) {
-      PollReady   => {
-	match read_stdin() {
-	  Other => { break; }
-	  input => {
-	    sinceLastStepNs += time::precise_time_ns() - t;
-	    pollTimeMs = stepTimeMs - ((sinceLastStepNs / 1000000) as c_int);
-	    handler.handle_input(input);
+  fn main_loop<T: GameHandler>(handler: &mut T) {
+    use input_reader::{poll_stdin, read_stdin, Other, PollReady, PollTimeout};
+    
+    handler.init();
+    
+    // milliseconds between piece drop steps
+    let mut stepTimeMs: c_int = 1000;
+    
+    // milliseconds for poll timeout
+    let mut pollTimeMs = stepTimeMs;
+    
+    // nanoseconds since the last drop step
+    let mut sinceLastStepNs = 0u64;
+    
+    loop {
+      let t = time::precise_time_ns();
+      match poll_stdin(pollTimeMs) {
+	PollReady   => {
+	  match read_stdin() {
+	    Other => { break; }
+	    input => {
+	      sinceLastStepNs += time::precise_time_ns() - t;
+	      pollTimeMs = stepTimeMs - ((sinceLastStepNs / 1000000) as c_int);
+	      handler.handle_input(input);
+	    }
 	  }
 	}
-      }
-      PollTimeout => {
-	match handler.handle_step() {
-	  None                 => { break; }
-	  Some(nextStepTimeMs) => {
-	    stepTimeMs = nextStepTimeMs;
-	    pollTimeMs = nextStepTimeMs;
-	    sinceLastStepNs = 0;
+	PollTimeout => {
+	  match handler.handle_step() {
+	    None                 => { break; }
+	    Some(nextStepTimeMs) => {
+	      stepTimeMs = nextStepTimeMs;
+	      pollTimeMs = nextStepTimeMs;
+	      sinceLastStepNs = 0;
+	    }
 	  }
 	}
       }
     }
   }
-}
 
-fn run_game(display: &Display) {
-  let restorer = terminal_control::set_terminal_raw_mode();
-  
-  display.init();
-  
-  let mut scoring = scoring::new();
-  
-  let scoreKeeper = score_keeper::get();
-  
-  let mut pieceGetter = piece_getter::new();
-  let firstPiece = pieceGetter.next_piece();
-  let secondPiece = pieceGetter.next_piece();
+  pub fn run_game(display: &Display) {
+    let restorer = terminal_control::set_terminal_raw_mode();
+    
+    display.init();
+    
+    let mut scoring = scoring::new();
+    
+    let scoreKeeper = score_keeper::get();
+    
+    let mut pieceGetter = piece_getter::new();
+    let firstPiece = pieceGetter.next_piece();
+    let secondPiece = pieceGetter.next_piece();
 
-  display.print_next_piece(&secondPiece);
-  
-  let mut game = TetrisGame{display:     display,
-                            pieceGetter: pieceGetter,
-                            scoring:     scoring,
-                            scoreKeeper: scoreKeeper,
-                            state:       Fall,
-                            piece:       firstPiece,
-                            nextPiece:   secondPiece,
-                            setBlocks:   [None, ..200]};
+    display.print_next_piece(&secondPiece);
+    
+    let mut game = TetrisGame{display:     display,
+			      pieceGetter: pieceGetter,
+			      scoring:     scoring,
+			      scoreKeeper: scoreKeeper,
+			      state:       Fall,
+			      piece:       firstPiece,
+			      nextPiece:   secondPiece,
+			      setBlocks:   [None, ..200]};
 
-  main_loop(&mut game);
-  
-  display.close();
-  restorer.restore();
+    main_loop(&mut game);
+    
+    display.close();
+    restorer.restore();
+  }
 
 }
 
@@ -1404,12 +1413,12 @@ fn main() {
   // Otherwise there are at least two arguments, handle double display or help argument.
   // If we don't understand the argument, just show the help
   match args.len() {
-    1 => run_game(&graphics::StandardDisplay),
+    1 => tetris::run_game(&graphics::StandardDisplay),
     _ => {
       match args[1] {
 	~"--help" | ~"-h"            => display_help(),
 	~"--score" | ~"--scores"     => display_scores(),
-	~"--display=double" | ~"-d2" => run_game(&graphics::DoubleDisplay),
+	~"--display=double" | ~"-d2" => tetris::run_game(&graphics::DoubleDisplay),
 	_                            => display_help()
       }
     }
