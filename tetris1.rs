@@ -1,5 +1,6 @@
 extern mod extra;
 use extra::time;
+use std::io::{print, println};
 use std::libc::c_int;
 use std::os;
 
@@ -7,6 +8,7 @@ use pieces::{Block, Piece};
 use graphics::Display;
 use piece_getter::{PieceGetter, new};
 use scoring::Scoring;
+use score_keeper::ScoreKeeper;
 use set_blocks::SetBlocks;
 
 mod terminal_control {
@@ -190,6 +192,7 @@ mod input_reader {
 
 mod graphics {
   use std::io::stdio;
+  use std::io::print;
   use pieces::{Block, Black, Piece, O, S};
   use scoring::Score;
   
@@ -859,7 +862,7 @@ mod scoring {
 	if self.bonusDrop == 0 {
 	  self.bonus -= 1;
 	  self.bonusDrop = bonus_drop_reset;
-	}	  
+	}
       }
       self.get_score()
     }
@@ -883,6 +886,43 @@ mod scoring {
   }
 }
 
+mod score_keeper {
+  use extra::time;
+  use extra::time::Tm;
+  use scoring::Score;
+
+  pub trait ScoreKeeper {
+    fn store_score(&self, tm: &Tm, score: Score);
+    fn get_scores(&self) -> ScoreStorage;
+  }
+  
+  pub fn get() -> &ScoreKeeper {
+    &FileScoreKeeper as &ScoreKeeper
+  }
+  
+  pub static scoreCount: int = 5;
+  
+  pub struct ScoreStorage {
+    highScores:   [Option<(Tm, Score)>, ..scoreCount],
+    recentScores: [Option<(Tm, Score)>, ..scoreCount]
+  }
+  
+  struct FileScoreKeeper;
+  
+  impl ScoreKeeper for FileScoreKeeper {
+    fn store_score(&self, tm: &Tm, score: Score) {
+      
+    }
+    
+    fn get_scores(&self) -> ScoreStorage {
+      ScoreStorage {
+	highScores:   [Some((time::now(), Score{level: 1, bonus: 1, score: 1})), Some((time::now(), Score{level: 1, bonus: 1, score: 1})), None, None, None],
+	recentScores: [Some((time::now(), Score{level: 1, bonus: 1, score: 1})), None, Some((time::now(), Score{level: 1, bonus: 1, score: 1})), None, None]
+      }
+    }
+  }
+}
+
 trait GameHandler {
   fn init(&self);
   fn handle_step(&mut self) -> Option<c_int>;
@@ -897,6 +937,7 @@ struct TetrisGame<'a> {
   display:     &'a Display,
   pieceGetter: &'a mut PieceGetter,
   scoring:     &'a mut Scoring,
+  scoreKeeper: &'a ScoreKeeper,
   state:       State,
   piece:       Piece,
   nextPiece:   Piece,
@@ -1098,6 +1139,7 @@ impl<'a> TetrisGame<'a> {
   }
   
   fn step_game_over(&mut self) -> Option<c_int> {
+    self.scoreKeeper.store_score(&time::now(), self.scoring.get_score());
     None
   }
   
@@ -1218,6 +1260,8 @@ fn run_game(display: &Display) {
   
   let mut scoring = scoring::new();
   
+  let scoreKeeper = score_keeper::get();
+  
   let mut pieceGetter = piece_getter::new();
   let firstPiece = pieceGetter.next_piece();
   let secondPiece = pieceGetter.next_piece();
@@ -1227,6 +1271,7 @@ fn run_game(display: &Display) {
   let mut game = TetrisGame{display:     display,
                             pieceGetter: pieceGetter,
                             scoring:     scoring,
+                            scoreKeeper: scoreKeeper,
                             state:       Fall,
                             piece:       firstPiece,
                             nextPiece:   secondPiece,
@@ -1240,10 +1285,12 @@ fn run_game(display: &Display) {
 }
 
 fn display_help() {
+  println("");
   println("A simple game of Tetris implemented in Rust");
   println("");
   println("Options:");
   println("--help or -h             |  show this help");
+  println("--scores                 |  show scores");
   println("--display=double or -d2  |  run in double display mode");
   println("");
   println("Controls:");
@@ -1254,6 +1301,98 @@ fn display_help() {
   println("any other key  | exit the game");
   println("");
   println("Run this program with no arguments to start a game in standard display mode");
+  println("");
+}
+
+fn display_scores() {
+/*
+High Scores:                   Recent Scores:
+Thu Jan  1 00:00:00 1970       Thu Jan 1 00:00:00 1970
+level: 1                       level: 1
+bonus: 1                       bonus: 1
+score: 1                       score: 1
+
+Thu Jan  1 00:00:00 1970       Thu Jan 1 00:00:00 1970
+level: 1                       level: 1
+bonus: 1                       bonus: 1
+score: 1                       score: 1
+
+Thu Jan  1 00:00:00 1970       Thu Jan 1 00:00:00 1970
+level: 1                       level: 1
+bonus: 1                       bonus: 1
+score: 1                       score: 1
+
+Thu Jan  1 00:00:00 1970       Thu Jan 1 00:00:00 1970
+level: 1                       level: 1
+bonus: 1                       bonus: 1
+score: 1                       score: 1
+
+Thu Jan  1 00:00:00 1970       Thu Jan 1 00:00:00 1970
+level: 1                       level: 1
+bonus: 1                       level: 1
+score: 1                       level: 1
+*/
+  
+  fn digits(i: int) -> int {
+    match i {
+      0 .. 9             => 1,
+      10 .. 99           => 2,
+      100 .. 999         => 3,
+      1000 .. 9999       => 4,
+      10000 .. 99999     => 5,
+      100000 .. 999999   => 6,
+      1000000 .. 1000000 => 7,
+      _                  => 8
+    }
+  }
+  
+  fn print_spaces(n: int) {
+    for _ in range(0, n) {
+      print(" ");
+    }
+  }
+  
+  println("");
+  println("High Scores:                   Recent Scores:");
+  
+  let scores = &score_keeper::get().get_scores();
+  
+  for i in range(0, score_keeper::scoreCount) {
+    match (&scores.highScores[i], &scores.recentScores[i]) {
+      (&None, &None) => (),
+      
+      (&Some((ref highScoreTm, highScoreScore)), &None) => {
+        println!("{}", highScoreTm.ctime());
+        println!("level: {}", highScoreScore.level);
+        println!("bonus: {}", highScoreScore.bonus);
+        println!("score: {}", highScoreScore.score);
+      },
+      
+      (&None, &Some((ref recentScoreTm, recentScoreScore))) => {
+        println!("                               {}", recentScoreTm.ctime());
+        println!("                               level: {}", recentScoreScore.level);
+        println!("                               bonus: {}", recentScoreScore.bonus);
+        println!("                               score: {}", recentScoreScore.score);
+      },
+      
+      (&Some((ref highScoreTm, highScoreScore)), &Some((ref recentScoreTm, recentScoreScore))) => {
+        println!("{}       {}", highScoreTm.ctime(), recentScoreTm.ctime());
+        
+        print!("level: {}", highScoreScore.level);
+        print_spaces(24 - digits(highScoreScore.level as int));
+        println!("level: {}", recentScoreScore.level);
+        
+        print!("bonus: {}", highScoreScore.bonus);
+        print_spaces(24 - digits(highScoreScore.bonus));
+        println!("bonus: {}", recentScoreScore.bonus);
+        
+        print!("score: {}", highScoreScore.score);
+        print_spaces(24 - digits(highScoreScore.score));
+        println!("score: {}", recentScoreScore.score);
+      }
+    }
+    println("");
+  }
 }
 
 fn main() {
@@ -1269,6 +1408,7 @@ fn main() {
     _ => {
       match args[1] {
 	~"--help" | ~"-h"            => display_help(),
+	~"--score" | ~"--scores"     => display_scores(),
 	~"--display=double" | ~"-d2" => run_game(&graphics::DoubleDisplay),
 	_                            => display_help()
       }
