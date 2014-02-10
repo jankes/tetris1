@@ -888,7 +888,7 @@ mod score_keeper {
   }
   
   pub fn get() -> &ScoreKeeper {
-    &FileScoreKeeper as &ScoreKeeper
+    &myFileScoreKeeper as &ScoreKeeper
   }
   
   pub static scoreCount: int = 5;
@@ -899,6 +899,8 @@ mod score_keeper {
   }
   
   struct FileScoreKeeper;
+  
+  static myFileScoreKeeper: FileScoreKeeper = FileScoreKeeper;
   
   impl ScoreKeeper for FileScoreKeeper {
     fn store_score(&self, tm: &Tm, score: Score) {
