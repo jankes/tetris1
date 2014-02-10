@@ -1,4 +1,6 @@
 extern mod extra;
+extern mod serialize;
+
 use std::io::{print, println};
 use std::os;
 
@@ -783,6 +785,7 @@ mod scoring {
     &levels[level - 1]
   }
   
+  #[deriving(Encodable, Decodable)]
   pub struct Score {
     level: u16,
     bonus: int,
@@ -879,11 +882,13 @@ mod scoring {
 
 mod score_keeper {
   use extra::time;
-  use extra::time::Tm;
+  use extra::json;
+  use serialize::{Encodable, Decodable};
+  use std::io::File;
   use scoring::Score;
 
   pub trait ScoreKeeper {
-    fn store_score(&self, tm: &Tm, score: Score);
+    fn store_score(&self, tm: &time::Tm, score: Score);
     fn get_scores(&self) -> ScoreStorage;
   }
   
@@ -891,27 +896,46 @@ mod score_keeper {
     &myFileScoreKeeper as &ScoreKeeper
   }
   
-  pub static scoreCount: int = 5;
-  
+  #[deriving(Encodable, Decodable)]
   pub struct ScoreStorage {
-    highScores:   [Option<(Tm, Score)>, ..scoreCount],
-    recentScores: [Option<(Tm, Score)>, ..scoreCount]
+    highScores:   ~[(time::Tm, Score)],
+    recentScores: ~[(time::Tm, Score)]
   }
   
   struct FileScoreKeeper;
-  
   static myFileScoreKeeper: FileScoreKeeper = FileScoreKeeper;
   
   impl ScoreKeeper for FileScoreKeeper {
-    fn store_score(&self, tm: &Tm, score: Score) {
+    fn store_score(&self, tm: &time::Tm, score: Score) {
+      let mut scores = self.get_scores();
       
+      // TODO: limit the number of scores stored, and sort the highScores list
+      scores.highScores.insert(0, (tm.clone(), score));
+      scores.recentScores.insert(0, (tm.clone(), score));
+      
+      let mut scoresFile = File::create(&Path::new("scores.json"));
+      let mut encoder = json::PrettyEncoder::new(&mut scoresFile);
+      scores.encode(&mut encoder);
     }
     
     fn get_scores(&self) -> ScoreStorage {
-      ScoreStorage {
-	highScores:   [Some((time::now(), Score{level: 1, bonus: 1, score: 1})), Some((time::now(), Score{level: 1, bonus: 1, score: 1})), None, None, None],
-	recentScores: [Some((time::now(), Score{level: 1, bonus: 1, score: 1})), None, Some((time::now(), Score{level: 1, bonus: 1, score: 1})), None, None]
+      let emptyStorage = ScoreStorage {
+	highScores:   ~[],
+	recentScores: ~[]
+      };
+      
+      let storageFile = File::open(&Path::new("scores.json"));
+      if storageFile.is_err() {
+	return emptyStorage;
       }
+      
+      let storageObject = json::from_reader(&mut storageFile.unwrap());
+      if storageObject.is_err() {
+	return emptyStorage;
+      }
+      
+      let mut decoder = json::Decoder::new(storageObject.unwrap());
+      Decodable::decode(&mut decoder)
     }
   }
 }
@@ -1343,7 +1367,7 @@ level: 1                       level: 1
 bonus: 1                       level: 1
 score: 1                       level: 1
 */
-  
+
   fn digits(i: int) -> int {
     match i {
       0 .. 9             => 1,
@@ -1363,44 +1387,52 @@ score: 1                       level: 1
     }
   }
   
+  fn max(a: uint, b: uint) -> uint {
+    if a >= b {
+      a
+    } else {
+      b
+    }
+  }
+  
   println("");
   println("High Scores:                   Recent Scores:");
   
-  let scores = &score_keeper::get().get_scores();
+  let scores = &score_keeper::get().get_scores();  
   
-  for i in range(0, score_keeper::scoreCount) {
-    match (&scores.highScores[i], &scores.recentScores[i]) {
-      (&None, &None) => (),
-      
-      (&Some((ref highScoreTm, highScoreScore)), &None) => {
-        println!("{}", highScoreTm.ctime());
-        println!("level: {}", highScoreScore.level);
-        println!("bonus: {}", highScoreScore.bonus);
-        println!("score: {}", highScoreScore.score);
-      },
-      
-      (&None, &Some((ref recentScoreTm, recentScoreScore))) => {
-        println!("                               {}", recentScoreTm.ctime());
-        println!("                               level: {}", recentScoreScore.level);
-        println!("                               bonus: {}", recentScoreScore.bonus);
-        println!("                               score: {}", recentScoreScore.score);
-      },
-      
-      (&Some((ref highScoreTm, highScoreScore)), &Some((ref recentScoreTm, recentScoreScore))) => {
-        println!("{}       {}", highScoreTm.ctime(), recentScoreTm.ctime());
+  let n = max(scores.highScores.len(), scores.recentScores.len());
+
+  for i in range(0, n) {
+    if i < scores.highScores.len() && i < scores.recentScores.len() {
+      let (ref highScoreTm, ref highScoreScore) = scores.highScores[i];
+      let (ref recentScoreTm, ref recentScoreScore) = scores.recentScores[i];
+      println!("{}       {}", highScoreTm.ctime(), recentScoreTm.ctime());
         
-        print!("level: {}", highScoreScore.level);
-        print_spaces(24 - digits(highScoreScore.level as int));
-        println!("level: {}", recentScoreScore.level);
-        
-        print!("bonus: {}", highScoreScore.bonus);
-        print_spaces(24 - digits(highScoreScore.bonus));
-        println!("bonus: {}", recentScoreScore.bonus);
-        
-        print!("score: {}", highScoreScore.score);
-        print_spaces(24 - digits(highScoreScore.score));
-        println!("score: {}", recentScoreScore.score);
-      }
+      print!("level: {}", highScoreScore.level);
+      print_spaces(24 - digits(highScoreScore.level as int));
+      println!("level: {}", recentScoreScore.level);
+      
+      print!("bonus: {}", highScoreScore.bonus);
+      print_spaces(24 - digits(highScoreScore.bonus));
+      println!("bonus: {}", recentScoreScore.bonus);
+      
+      print!("score: {}", highScoreScore.score);
+      print_spaces(24 - digits(highScoreScore.score));
+      println!("score: {}", recentScoreScore.score);
+    
+    } else if i < scores.highScores.len() {
+      let (ref highScoreTm, ref highScoreScore) = scores.highScores[i];
+      println!("{}", highScoreTm.ctime());
+      println!("level: {}", highScoreScore.level);
+      println!("bonus: {}", highScoreScore.bonus);
+      println!("score: {}", highScoreScore.score);
+    
+    } else if i < scores.recentScores.len() {
+      let (ref recentScoreTm, ref recentScoreScore) = scores.recentScores[i];
+      println!("                               {}", recentScoreTm.ctime());
+      println!("                               level: {}", recentScoreScore.level);
+      println!("                               bonus: {}", recentScoreScore.bonus);
+      println!("                               score: {}", recentScoreScore.score);
     }
     println("");
   }
