@@ -1,5 +1,6 @@
-extern mod extra;
-extern mod serialize;
+extern crate extra;
+extern crate serialize;
+extern crate time;
 
 use std::io::{print, println};
 use std::os;
@@ -7,6 +8,7 @@ use std::os;
 mod terminal_control {
   use std::libc::c_int;
   
+  #[allow(non_camel_case_types)]  
   struct termios {
     c_iflag: c_int,      // input flags
     c_oflag: c_int,      // output flags
@@ -118,6 +120,7 @@ mod input_reader {
     Up, Down, Right, Left, Other
   }
   
+  #[allow(non_camel_case_types)]
   struct pollfd {
     fd:      c_int,
     events:  c_short,
@@ -881,7 +884,7 @@ mod scoring {
 }
 
 mod score_keeper {
-  use extra::time;
+  use time;
   use extra::json;
   use serialize::{Encodable, Decodable};
   use std::io::File;
@@ -941,7 +944,7 @@ mod score_keeper {
 }
 
 mod tetris {
-  use extra::time;
+  use time;
   use std::libc::c_int;
   
   use terminal_control;
