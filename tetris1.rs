@@ -8,7 +8,7 @@ use std::os;
 mod terminal_control {
   use std::libc::c_int;
   
-  #[allow(non_camel_case_types)]  
+  #[allow(non_camel_case_types)]
   struct termios {
     c_iflag: c_int,      // input flags
     c_oflag: c_int,      // output flags
@@ -88,23 +88,6 @@ mod terminal_control {
       ios: original_ios
     }
   }
-  
-  // debugging/testing purposes
-//   pub fn print_terminal_settings() {
-//     let (ios, _) = get_terminal_attr();
-//     println!("iflag = {}", ios.c_iflag);
-//     println!("oflag = {}", ios.c_oflag);
-//     println!("cflag = {}", ios.c_cflag);
-//     println!("lflag = {}", ios.c_lflag);
-//     println!("control characters:");
-//     for c in ios.c_cc.iter() {
-//       println!("{}", *c);
-//     }
-//     println("unknown:");
-//     for a in ios.padding.iter() {
-//       println!("{}", *a);
-//     }  
-//   }
 }
 
 mod input_reader {
@@ -152,20 +135,21 @@ mod input_reader {
   
   pub fn read_stdin() -> ReadResult {
     unsafe {
-      // reading bytes into storage for an unsigned integer for easy comparison of
+      // Reading bytes into storage for an unsigned integer for easy comparison of
       // input byte sequence (we only care about arrow keys) to integer constants
       //
-      // at least for Konsole, pressing Up, Down, Right, or Left on the keyboard sends 3 bytes:
+      // At least for Konsole, pressing Up, Down, Right, or Left on the keyboard sends 3 bytes:
       // 0x1B (escape)
       // 0x5B [
       // 0x41, 0x42, 0x43, or 0x44 (A, B, C, or D)
       //
-      // note the case where we read less than all 3 bytes from the single read call is not handled, and considered "Other"
+      // Note the case where we read less than all 3 bytes from the single read call is not handled,
+      // and considered "Other"
       //
-      // for example, 0x1B 0x5B, 0x44 is sent when Left is pressed
+      // For example, 0x1B 0x5B, 0x44 is sent when Left is pressed
       // 
-      // the integer constants to compare these sequences to are "backwards" due to Intel's least significant byte order
-      // example above is least significant byte order representation of 0x445B1B
+      // The integer constants to compare these sequences to are "backwards" due to Intel's least significant
+      // byte order, so 0x445B1B is the constant we expect when left is pressed
       
       let mut buf = 0u64;
       let bufAddr: *mut u8 = transmute(&mut buf);
@@ -269,7 +253,12 @@ mod graphics {
   // Display implemenations may use an offset from this
   static baseInfoCol: i8 = 14;
   
-  fn init<T: Converter>(converter: T, terminalRows: i8, terminalCols: i8, terminalRowOffset: i8, terminalColumnOffset: i8, infoCol: i8) {
+  fn init<T: Converter>(converter: T,
+                        terminalRows: i8,
+                        terminalCols: i8,
+                        terminalRowOffset: i8,
+                        terminalColumnOffset: i8,
+                        infoCol: i8) {
       clear_terminal();
       hide_cursor();
       print_borders(terminalRows, terminalCols, terminalRowOffset, terminalColumnOffset);
@@ -468,7 +457,8 @@ mod graphics {
         move_cursor(DoubleDisplay::to_terminal(nextRow + block.row, colOffset + block.column));
         set_background_color(block.color as u8);
         print("    ");
-        move_cursor((2 * (nextRow + block.row) - 1 + dblRowOffset, 4 * (colOffset + block.column) - 3 + dblBorderColumns + dblColumnOffset));
+        move_cursor((2 * (nextRow + block.row) - 1 + dblRowOffset,
+                     4 * (colOffset + block.column) - 3 + dblBorderColumns + dblColumnOffset));
         print("    ");
       }
     }
