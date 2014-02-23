@@ -1,9 +1,7 @@
-# Play Tetris in the terminal!
+## Play Tetris in the terminal!
 
-## A simple Tetris clone implemented in Rust.
-
-http://www.rust-lang.org
-https://github.com/mozilla/rust
+### A simple Tetris clone implemented in Rust
+(See http://www.rust-lang.org and https://github.com/mozilla/rust for more information on the Rust programming language)
 
 ### Supported Platforms
 
