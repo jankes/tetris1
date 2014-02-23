@@ -1,4 +1,5 @@
-#ignore everything besides rust files and the .gitignore file itself
+# Ignore everything, then only track import files
 *
 !.gitignore
 !*.rs
+!README.md
