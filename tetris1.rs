@@ -128,18 +128,18 @@ mod input_reader {
   }
 
   extern {
-    fn poll(fds: *pollfd, nfds: c_long, timeout: c_int) -> c_int;
+    fn poll(fds: *mut pollfd, nfds: c_long, timeout: c_int) -> c_int;
     fn read(fd: c_int, buf: *mut u8, nbyte: u64) -> i64;
   }
 
   pub fn poll_stdin(timeoutMillis: c_int) -> PollResult {
     unsafe {
-      let pfd = pollfd {
+      let mut pfd = pollfd {
 	fd:      0, // standard input file descriptor number
 	events:  1, // POLLIN event
 	revents: 0  // kernel modifies this field when calling poll()
       };
-      let pr = poll(&pfd, 1, timeoutMillis);
+      let pr = poll(&mut pfd, 1, timeoutMillis);
       if pr > 0 {
 	return PollReady
       } else if pr == 0 {
