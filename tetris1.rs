@@ -871,9 +871,10 @@ mod scoring {
     }
     
     fn update(&mut self, setRows: int) -> Score {
-      match setRows {
-	count if count > 0 => self.update_some_set_rows(count),
-	_                  => self.update_no_set_rows()
+      if setRows > 0 {
+	self.update_some_set_rows(setRows)
+      } else {
+	self.update_no_set_rows()
       }
     }
     
