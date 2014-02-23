@@ -884,37 +884,52 @@ mod scoring {
 }
 
 mod score_keeper {
-  use time;
   use extra::json;
   use serialize::{Encodable, Decodable};
-  use std::io::File;
   use scoring::Score;
-
+  use std::io::File;
+  use time;
+  
   pub trait ScoreKeeper {
     fn store_score(&self, tm: &time::Tm, score: Score);
     fn get_scores(&self) -> ScoreStorage;
   }
-  
-  pub fn get() -> &ScoreKeeper {
-    &myFileScoreKeeper as &ScoreKeeper
-  }
-  
+    
   #[deriving(Encodable, Decodable)]
   pub struct ScoreStorage {
     highScores:   ~[(time::Tm, Score)],
     recentScores: ~[(time::Tm, Score)]
   }
   
+  pub fn get() -> &ScoreKeeper {
+    &myFileScoreKeeper as &ScoreKeeper
+  }
+
+  
   struct FileScoreKeeper;
-  static myFileScoreKeeper: FileScoreKeeper = FileScoreKeeper;
+  
+  static myFileScoreKeeper: FileScoreKeeper = FileScoreKeeper;  
+  static maxScores : uint = 5;
   
   impl ScoreKeeper for FileScoreKeeper {
     fn store_score(&self, tm: &time::Tm, score: Score) {
+      // zero scores aren't worth keeping
+      if score.score <= 0 {
+	return;
+      }
+      
       let mut scores = self.get_scores();
       
-      // TODO: limit the number of scores stored, and sort the highScores list
       scores.highScores.insert(0, (tm.clone(), score));
+      scores.highScores.sort_by(|&(_, s1), &(_, s2)| s2.score.cmp(&s1.score));
+      if scores.highScores.len() > maxScores {
+	scores.highScores.pop();
+      }
+      
       scores.recentScores.insert(0, (tm.clone(), score));
+      if scores.recentScores.len() > maxScores {
+	scores.recentScores.pop();
+      }
       
       let mut scoresFile = File::create(&Path::new("scores.json"));
       let mut encoder = json::PrettyEncoder::new(&mut scoresFile);
