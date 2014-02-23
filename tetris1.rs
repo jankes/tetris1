@@ -806,7 +806,7 @@ mod scoring {
                 score:     0,
                 bonus:     1,
                 count:     0,
-                bonusDrop: bonus_drop_reset} as ~Scoring
+                bonusDrop: bonusDropReset} as ~Scoring
   }
   
   struct StdScoring {
@@ -818,7 +818,7 @@ mod scoring {
   }
   
   // control how many pieces drop without completing any rows before the bonus is decremented
-  static bonus_drop_reset: int = 1;
+  static bonusDropReset: int = 1;
   
   impl StdScoring {
     fn update_some_set_rows(&mut self, setRows: int) -> Score {
@@ -848,7 +848,7 @@ mod scoring {
       }
       self.bonus += bonusInc;
       
-      self.bonusDrop = bonus_drop_reset;
+      self.bonusDrop = bonusDropReset;
       
       self.get_score()
     }
@@ -858,7 +858,7 @@ mod scoring {
 	self.bonusDrop -= 1;
 	if self.bonusDrop == 0 {
 	  self.bonus -= 1;
-	  self.bonusDrop = bonus_drop_reset;
+	  self.bonusDrop = bonusDropReset;
 	}
       }
       self.get_score()
