@@ -1,5 +1,7 @@
 ## Play Tetris in the terminal!
 
+![screen shot](https://raw.github.com/jankes/tetris1/master/tetris1.png)
+
 ### A simple Tetris clone implemented in Rust
 (See http://www.rust-lang.org and https://github.com/mozilla/rust for more information on the Rust programming language)
 
