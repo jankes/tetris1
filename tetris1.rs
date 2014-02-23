@@ -33,12 +33,12 @@ mod terminal_control {
   fn get_terminal_attr() -> (termios, c_int) {
     unsafe {
       let mut ios = termios {
-	c_iflag: 0,
-	c_oflag: 0,
-	c_cflag: 0,
-	c_lflag: 0,
-	c_cc:    [0, ..32],
-	padding: [0, ..12]
+        c_iflag: 0,
+        c_oflag: 0,
+        c_cflag: 0,
+        c_lflag: 0,
+        c_cc:    [0, ..32],
+        padding: [0, ..12]
       };
       // first parameter is file descriptor number, 0 ==> standard input
       let err = tcgetattr(0, &mut ios);
@@ -135,17 +135,17 @@ mod input_reader {
   pub fn poll_stdin(timeoutMillis: c_int) -> PollResult {
     unsafe {
       let mut pfd = pollfd {
-	fd:      0, // standard input file descriptor number
-	events:  1, // POLLIN event
-	revents: 0  // kernel modifies this field when calling poll()
+        fd:      0, // standard input file descriptor number
+        events:  1, // POLLIN event
+        revents: 0  // kernel modifies this field when calling poll()
       };
       let pr = poll(&mut pfd, 1, timeoutMillis);
       if pr > 0 {
-	return PollReady
+        return PollReady
       } else if pr == 0 {
-	return PollTimeout;
+        return PollTimeout;
       } else {
-	fail!("error polling standard input");
+        fail!("error polling standard input");
       }
     }
   }
@@ -173,14 +173,14 @@ mod input_reader {
       // first parameter is file descriptor number, 0 ==> standard input
       let numRead = read(0, bufAddr, 8);
       if numRead < 0 {
-	fail!("error reading standard input");
+        fail!("error reading standard input");
       }
       match buf {
-	0x415B1B => Up,
-	0x425B1B => Down,
-	0x435B1B => Right,
-	0x445B1B => Left,
-	_        => Other
+        0x415B1B => Up,
+        0x425B1B => Down,
+        0x435B1B => Right,
+        0x445B1B => Left,
+        _        => Other
       }
     }
   }  
@@ -317,7 +317,7 @@ mod graphics {
 
     fn print_piece(&self, piece: &Piece) {
       for block in piece.blocks.iter() {
-	self.print_block(*block);
+        self.print_block(*block);
       }
     }
         
@@ -396,7 +396,7 @@ mod graphics {
     
     fn print_block(&self, block: Block) {
       if block.row < 1 || block.column < 1 {
-	return;
+        return;
       }
       move_cursor(StandardDisplay::to_terminal(block.row, block.column));
       set_background_color(block.color as u8);
@@ -405,13 +405,13 @@ mod graphics {
     
     fn print_next_piece(&self, piece: &Piece) {
       let colOffset = match piece.ty {
-	O | S => 13,
-	_     => 14
+        O | S => 13,
+        _     => 14
       };
       for block in piece.blocks.iter() {
-	move_cursor(StandardDisplay::to_terminal(nextRow + block.row, colOffset + block.column));
-	set_background_color(block.color as u8);
-	print("  ");
+        move_cursor(StandardDisplay::to_terminal(nextRow + block.row, colOffset + block.column));
+        set_background_color(block.color as u8);
+        print("  ");
       }
     }
   }
@@ -450,7 +450,7 @@ mod graphics {
   
     fn print_block(&self, block: Block) {
        if block.row < 1 || block.column < 1 {
-	return;
+        return;
       }
       move_cursor(DoubleDisplay::to_terminal(block.row, block.column));
       set_background_color(block.color as u8);
@@ -461,15 +461,15 @@ mod graphics {
     
     fn print_next_piece(&self, piece: &Piece) {
       let colOffset = match piece.ty {
-	O | S => 10,
-	_     => 11
+        O | S => 10,
+        _     => 11
       };
       for block in piece.blocks.iter() {
         move_cursor(DoubleDisplay::to_terminal(nextRow + block.row, colOffset + block.column));
-	set_background_color(block.color as u8);
+        set_background_color(block.color as u8);
         print("    ");
-	move_cursor((2 * (nextRow + block.row) - 1 + dblRowOffset, 4 * (colOffset + block.column) - 3 + dblBorderColumns + dblColumnOffset));
-	print("    ");
+        move_cursor((2 * (nextRow + block.row) - 1 + dblRowOffset, 4 * (colOffset + block.column) - 3 + dblBorderColumns + dblColumnOffset));
+        print("    ");
       }
     }
   }
@@ -541,53 +541,53 @@ mod pieces {
   static pieceInitial: [Piece, ..7] = 
   [
     Piece{ty:     I,
-	  rotate: 0,
-	  blocks: [Block{row: 0, column: 4, color: Cyan},
-		   Block{row: 0, column: 5, color: Cyan},
-		   Block{row: 0, column: 6, color: Cyan},
-		   Block{row: 0, column: 7, color: Cyan}]},
+          rotate: 0,
+          blocks: [Block{row: 0, column: 4, color: Cyan},
+                   Block{row: 0, column: 5, color: Cyan},
+                   Block{row: 0, column: 6, color: Cyan},
+                   Block{row: 0, column: 7, color: Cyan}]},
     
     Piece{ty:     J,
-	  rotate: 0,
-	  blocks: [Block{row: -1, column: 4, color: Blue},
-		   Block{row:  0, column: 4, color: Blue},
-		   Block{row:  0, column: 5, color: Blue},
-		   Block{row:  0, column: 6, color: Blue}]},
+          rotate: 0,
+          blocks: [Block{row: -1, column: 4, color: Blue},
+                   Block{row:  0, column: 4, color: Blue},
+                   Block{row:  0, column: 5, color: Blue},
+                   Block{row:  0, column: 6, color: Blue}]},
     
     Piece{ty:     L,
-	  rotate: 0,
-	  blocks: [Block{row:  0, column: 4, color: White},
-		   Block{row:  0, column: 5, color: White},
-		   Block{row:  0, column: 6, color: White},
-		   Block{row: -1, column: 6, color: White}]},
+          rotate: 0,
+          blocks: [Block{row:  0, column: 4, color: White},
+                   Block{row:  0, column: 5, color: White},
+                   Block{row:  0, column: 6, color: White},
+                   Block{row: -1, column: 6, color: White}]},
 
     Piece{ty:     O,
-	  rotate: 0,
-	  blocks: [Block{row: -1, column: 5, color: Yellow},
-		   Block{row: -1, column: 6, color: Yellow},
-		   Block{row:  0, column: 5, color: Yellow},
-		   Block{row:  0, column: 6, color: Yellow}]},
+          rotate: 0,
+          blocks: [Block{row: -1, column: 5, color: Yellow},
+                   Block{row: -1, column: 6, color: Yellow},
+                   Block{row:  0, column: 5, color: Yellow},
+                   Block{row:  0, column: 6, color: Yellow}]},
     
     Piece{ty:     S,
-	  rotate: 0,
-	  blocks: [Block{row:  0, column: 5, color: Green},
-		   Block{row:  0, column: 6, color: Green},
-		   Block{row: -1, column: 6, color: Green},
-		   Block{row: -1, column: 7, color: Green}]},
+          rotate: 0,
+          blocks: [Block{row:  0, column: 5, color: Green},
+                   Block{row:  0, column: 6, color: Green},
+                   Block{row: -1, column: 6, color: Green},
+                   Block{row: -1, column: 7, color: Green}]},
     
     Piece{ty:     T,
-	  rotate: 0,
-	  blocks: [Block{row:  0, column: 4, color: Magenta},
-		   Block{row:  0, column: 5, color: Magenta},
-		   Block{row:  0, column: 6, color: Magenta},
-		   Block{row: -1, column: 5, color: Magenta}]},
+          rotate: 0,
+          blocks: [Block{row:  0, column: 4, color: Magenta},
+                   Block{row:  0, column: 5, color: Magenta},
+                   Block{row:  0, column: 6, color: Magenta},
+                   Block{row: -1, column: 5, color: Magenta}]},
 
     Piece{ty:     Z,
-	  rotate: 0,
-	  blocks: [Block{row: -1, column: 4, color: Red},
-		   Block{row: -1, column: 5, color: Red},
-		   Block{row:  0, column: 5, color: Red},
-		   Block{row:  0, column: 6, color: Red}]}
+          rotate: 0,
+          blocks: [Block{row: -1, column: 4, color: Red},
+                   Block{row: -1, column: 5, color: Red},
+                   Block{row:  0, column: 5, color: Red},
+                   Block{row:  0, column: 6, color: Red}]}
   ];
 
   pub fn new(ty: PieceType) -> Piece {
@@ -639,20 +639,20 @@ mod pieces {
     let s = if clockwise { 1i8 } else { -1i8 };
     [
       Block{row:    blocks[0].row    + s * transform[0].row(),
-	    column: blocks[0].column + s * transform[0].col(),
-	    color:  blocks[0].color},
+            column: blocks[0].column + s * transform[0].col(),
+            color:  blocks[0].color},
     
       Block{row:    blocks[1].row    + s * transform[1].row(),
-	    column: blocks[1].column + s * transform[1].col(),
-	    color:  blocks[1].color},
+            column: blocks[1].column + s * transform[1].col(),
+            color:  blocks[1].color},
     
       Block{row:    blocks[2].row    + s * transform[2].row(),
-	    column: blocks[2].column + s * transform[2].col(),
-	    color:  blocks[2].color},
+            column: blocks[2].column + s * transform[2].col(),
+            color:  blocks[2].color},
     
       Block{row:    blocks[3].row    + s * transform[3].row(),
-	    column: blocks[3].column + s * transform[3].col(),
-	    color:  blocks[3].color}
+            column: blocks[3].column + s * transform[3].col(),
+            color:  blocks[3].color}
     ]
   }
 
@@ -713,7 +713,7 @@ mod set_blocks {
   impl SetBlocks for [Option<Block>, ..200] {
     fn has_block(&self, row: i8, col: i8) -> bool {
       if row < 1 || row > 20 || col < 1 || col > 10 {
-	return false;
+        return false;
       }
       return self[index(row, col)].is_some();
     }
@@ -728,7 +728,7 @@ mod set_blocks {
     
     fn set(&mut self, block: Block) {
       if block.row < 1 || block.row > 20 || block.column < 1 || block.column > 10 {
-	fail!("can't add out of bounds block to set blocks");
+        fail!("can't add out of bounds block to set blocks");
       }
       self[index(block.row, block.column)] = Some(block);
     }
@@ -835,16 +835,16 @@ mod scoring {
       let bonusInc = if self.count > level.count { level.bonusInc } else { 0 };
       
       if self.count > level.count {
-	if self.level < levels.len() as u16 {
-	  self.level += 1;
-	}
-	self.count = 0;
+        if self.level < levels.len() as u16 {
+          self.level += 1;
+        }
+        self.count = 0;
       }
       
       if self.bonus == 1 {
-	self.bonus = 2 * setRows;
+        self.bonus = 2 * setRows;
       } else {
-	self.bonus += 2 * setRows;
+        self.bonus += 2 * setRows;
       }
       self.bonus += bonusInc;
       
@@ -855,11 +855,11 @@ mod scoring {
     
     fn update_no_set_rows(&mut self) -> Score {
       if self.bonus > 1 {
-	self.bonusDrop -= 1;
-	if self.bonusDrop == 0 {
-	  self.bonus -= 1;
-	  self.bonusDrop = bonusDropReset;
-	}
+        self.bonusDrop -= 1;
+        if self.bonusDrop == 0 {
+          self.bonus -= 1;
+          self.bonusDrop = bonusDropReset;
+        }
       }
       self.get_score()
     }
@@ -872,9 +872,9 @@ mod scoring {
     
     fn update(&mut self, setRows: int) -> Score {
       if setRows > 0 {
-	self.update_some_set_rows(setRows)
+        self.update_some_set_rows(setRows)
       } else {
-	self.update_no_set_rows()
+        self.update_no_set_rows()
       }
     }
     
@@ -916,7 +916,7 @@ mod score_keeper {
     fn store_score(&self, tm: &time::Tm, score: Score) {
       // zero scores aren't worth keeping
       if score.score <= 0 {
-	return;
+        return;
       }
       
       let mut scores = self.get_scores();
@@ -924,12 +924,12 @@ mod score_keeper {
       scores.highScores.insert(0, (tm.clone(), score));
       scores.highScores.sort_by(|&(_, s1), &(_, s2)| s2.score.cmp(&s1.score));
       if scores.highScores.len() > maxScores {
-	scores.highScores.pop();
+        scores.highScores.pop();
       }
       
       scores.recentScores.insert(0, (tm.clone(), score));
       if scores.recentScores.len() > maxScores {
-	scores.recentScores.pop();
+        scores.recentScores.pop();
       }
       
       let mut scoresFile = File::create(&Path::new("scores.json"));
@@ -939,18 +939,18 @@ mod score_keeper {
     
     fn get_scores(&self) -> ScoreStorage {
       let emptyStorage = ScoreStorage {
-	highScores:   ~[],
-	recentScores: ~[]
+        highScores:   ~[],
+        recentScores: ~[]
       };
       
       let storageFile = File::open(&Path::new("scores.json"));
       if storageFile.is_err() {
-	return emptyStorage;
+        return emptyStorage;
       }
       
       let storageObject = json::from_reader(&mut storageFile.unwrap());
       if storageObject.is_err() {
-	return emptyStorage;
+        return emptyStorage;
       }
       
       let mut decoder = json::Decoder::new(storageObject.unwrap());
@@ -1001,36 +1001,36 @@ mod tetris {
   impl<'a> TetrisGame<'a> {  
     fn collides_with_set_blocks(&self, piece: &Piece) -> bool {
       for block in piece.blocks.iter() {
-	if self.setBlocks.has_block(block.row, block.column) {
-	  return true;
-	}
+        if self.setBlocks.has_block(block.row, block.column) {
+          return true;
+        }
       }
       return false;
     }
     
     fn in_bounds_bottom_row(piece: &Piece) -> bool {
       for block in piece.blocks.iter() {
-	if block.row > 20 {
-	  return false;
-	}
+        if block.row > 20 {
+          return false;
+        }
       }
       return true;
     }
     
     fn in_bounds_cols(piece: &Piece) -> bool {
       for block in piece.blocks.iter() {
-	if block.column < 1 || block.column > 10 {
-	  return false;
-	}
+        if block.column < 1 || block.column > 10 {
+          return false;
+        }
       }
       return true;
     }
     
     fn all_in_bounds(piece: &Piece) -> bool {
       for block in piece.blocks.iter() {
-	if block.row < 1 || block.row > 20 || block.column < 1 || block.column > 10 {
-	  return false;
-	}
+        if block.row < 1 || block.row > 20 || block.column < 1 || block.column > 10 {
+          return false;
+        }
       }
       return true;
     }
@@ -1043,7 +1043,7 @@ mod tetris {
     fn is_row_set(&self, row: i8) -> bool {
       let mut col = 1;
       while self.setBlocks.has_block(row, col) {
-	col += 1;
+        col += 1;
       }
       return col == 11i8;
     }
@@ -1051,83 +1051,83 @@ mod tetris {
     fn set_row_count(&self) -> int {
       let mut count = 0;
       for row in range(1, 21i8) {
-	if self.is_row_set(row) {
-	  count += 1;
-	}
+        if self.is_row_set(row) {
+          count += 1;
+        }
       }
       return count;
     }
     
     fn erase_row(&self, row: i8) {
       for col in range(1, 11i8) {
-	self.display.erase_block(row, col);
+        self.display.erase_block(row, col);
       }
     }
     
     fn erase_set_rows(&self) {
       for row in range(1, 21i8) {
-	if self.is_row_set(row) {
-	  self.erase_row(row);
-	}
+        if self.is_row_set(row) {
+          self.erase_row(row);
+        }
       }
     }
     
     fn erase_all_set_blocks(&self) {
       for row in range(1, 21i8) {
-	for col in range(1, 11i8) {
-	  match self.setBlocks.get(row, col) {
-	    None    => (),
-	    Some(_) => self.display.erase_block(row, col)
-	  }
-	}
+        for col in range(1, 11i8) {
+          match self.setBlocks.get(row, col) {
+            None    => (),
+            Some(_) => self.display.erase_block(row, col)
+          }
+        }
       }
     }
 
     fn print_set_blocks(&self) {
       for row in range(1, 21i8) {
-	for col in range(1, 11i8) {
-	  match self.setBlocks.get(row, col) {
-	    None        => (),
-	    Some(block) => self.display.print_block(block),
-	  }
-	}
+        for col in range(1, 11i8) {
+          match self.setBlocks.get(row, col) {
+            None        => (),
+            Some(block) => self.display.print_block(block),
+          }
+        }
       }
       self.display.flush();
     }
     
     fn set_piece(&mut self) {
       for block in self.piece.blocks.iter() {
-	self.setBlocks.set(*block);
+        self.setBlocks.set(*block);
       }
     }
     
     fn clear_row(&mut self, row: i8) {
       for col in range(1, 11i8) {
-	let mut r = row;
-	while r >= 2 {
-	  match self.setBlocks.get(r - 1, col) {
-	    None        => self.setBlocks.remove(r, col),
-	    Some(block) => self.setBlocks.set(Block{row: r, column: col, color: block.color})
-	  }
-	  r -= 1;
-	}
+        let mut r = row;
+        while r >= 2 {
+          match self.setBlocks.get(r - 1, col) {
+            None        => self.setBlocks.remove(r, col),
+            Some(block) => self.setBlocks.set(Block{row: r, column: col, color: block.color})
+          }
+          r -= 1;
+        }
       }
       for col in range(1, 11i8) {
-	self.setBlocks.remove(1, col);
+        self.setBlocks.remove(1, col);
       }
     }
     
     fn clear_set_rows(&mut self) {
       let mut row = 20;
       loop {
-	while row >= 1 && !self.is_row_set(row) {
-	  row -= 1;
-	}
-	if row == 0 {
-	  break;
-	} else {
-	  self.clear_row(row);      
-	}
+        while row >= 1 && !self.is_row_set(row) {
+          row -= 1;
+        }
+        if row == 0 {
+          break;
+        } else {
+          self.clear_row(row);      
+        }
       }
     }
     
@@ -1140,43 +1140,43 @@ mod tetris {
     }
     
     fn go_to_next_piece(&mut self) {
-	self.set_piece();
-	
-	self.display.erase_next_piece(&self.nextPiece);
-	
-	self.piece = self.nextPiece;
-	self.nextPiece = self.pieceGetter.next_piece();
-	
-	self.display.print_next_piece(&self.nextPiece);
+        self.set_piece();
+        
+        self.display.erase_next_piece(&self.nextPiece);
+        
+        self.piece = self.nextPiece;
+        self.nextPiece = self.pieceGetter.next_piece();
+        
+        self.display.print_next_piece(&self.nextPiece);
     }
     
     fn step_fall(&mut self) -> Option<c_int> {
       match self.can_move_rows(&self.piece, 1) {
-	true  => {
-	  let translated = pieces::translate(&self.piece, 1, 0);
-	  self.update_piece(&translated);
-	  
-	  Some(self.scoring.get_time())
-	}
-	false => {
-	  if !TetrisGame::all_in_bounds(&self.piece) {
-	    self.state = GameOver;
-	    return Some(500);
-	  }
-	  
-	  self.go_to_next_piece();
-	  
-	  let setRows = self.set_row_count();
-	  if setRows > 0 {
-	    self.erase_set_rows();
-	    self.state = Clear;
-	  }
-	  
-	  let s = self.scoring.update(setRows);
-	  self.display.print_score(s);
-	  
-	  Some(1000)
-	}
+        true  => {
+          let translated = pieces::translate(&self.piece, 1, 0);
+          self.update_piece(&translated);
+          
+          Some(self.scoring.get_time())
+        }
+        false => {
+          if !TetrisGame::all_in_bounds(&self.piece) {
+            self.state = GameOver;
+            return Some(500);
+          }
+          
+          self.go_to_next_piece();
+          
+          let setRows = self.set_row_count();
+          if setRows > 0 {
+            self.erase_set_rows();
+            self.state = Clear;
+          }
+          
+          let s = self.scoring.update(setRows);
+          self.display.print_score(s);
+          
+          Some(1000)
+        }
       }
     }
     
@@ -1199,13 +1199,13 @@ mod tetris {
     
     fn rotate(&mut self, clockwise: bool) {
       let rotated = if clockwise {
-	pieces::rotate_clockwise(&self.piece)
+        pieces::rotate_clockwise(&self.piece)
       } else {
-	pieces::rotate_counter_clockwise(&self.piece)
+        pieces::rotate_counter_clockwise(&self.piece)
       };
       
       if !TetrisGame::in_bounds_cols(&rotated) || self.collides_with_set_blocks(&rotated) {
-	return;
+        return;
       }
       
       self.update_piece(&rotated);
@@ -1213,12 +1213,12 @@ mod tetris {
     
     fn quick_drop(&mut self) {
       if !self.can_move_rows(&self.piece, 1) {
-	return;
+        return;
       }
       
       let mut translated = pieces::translate(&self.piece, 1, 0);
       while self.can_move_rows(&translated, 1) {
-	translated = pieces::translate(&translated, 1, 0);
+        translated = pieces::translate(&translated, 1, 0);
       }
       
       self.update_piece(&translated);
@@ -1228,7 +1228,7 @@ mod tetris {
       let translated = pieces::translate(&self.piece, 0, columnOffset);
       
       if !TetrisGame::in_bounds_cols(&translated) || self.collides_with_set_blocks(&translated) {
-	return;
+        return;
       }
       
       self.update_piece(&translated);
@@ -1245,9 +1245,9 @@ mod tetris {
     fn handle_step(&mut self) -> Option<c_int> {    
       let stepTime = 
       match self.state {
-	Fall     => self.step_fall(),
-	Clear    => self.step_clear(),
-	GameOver => self.step_game_over()
+        Fall     => self.step_fall(),
+        Clear    => self.step_clear(),
+        GameOver => self.step_game_over()
       };
       self.display.flush();
       stepTime
@@ -1256,11 +1256,11 @@ mod tetris {
     fn handle_input(&mut self, input: input_reader::ReadResult) {
       use input_reader::{Up, Down, Right, Left};
       match input {
-	Up    => self.rotate(true),
-	Down  => self.quick_drop(),
-	Right => self.translate_cols(1),
-	Left  => self.translate_cols(-1),
-	_     => fail!("unknown direction")
+        Up    => self.rotate(true),
+        Down  => self.quick_drop(),
+        Right => self.translate_cols(1),
+        Left  => self.translate_cols(-1),
+        _     => fail!("unknown direction")
       }
       self.display.flush();
     }
@@ -1287,29 +1287,29 @@ mod tetris {
     loop {
       let t = time::precise_time_ns();
       match poll_stdin(pollTimeMs) {
-	PollReady   => {
-	  match read_stdin() {
-	    Other => {
-	      handler.handle_quit();
-	      break;
-	    }
-	    input => {
-	      sinceLastStepNs += time::precise_time_ns() - t;
-	      pollTimeMs = stepTimeMs - ((sinceLastStepNs / 1000000) as c_int);
-	      handler.handle_input(input);
-	    }
-	  }
-	}
-	PollTimeout => {
-	  match handler.handle_step() {
-	    None                 => { break; }
-	    Some(nextStepTimeMs) => {
-	      stepTimeMs = nextStepTimeMs;
-	      pollTimeMs = nextStepTimeMs;
-	      sinceLastStepNs = 0;
-	    }
-	  }
-	}
+        PollReady   => {
+          match read_stdin() {
+            Other => {
+              handler.handle_quit();
+              break;
+            }
+            input => {
+              sinceLastStepNs += time::precise_time_ns() - t;
+              pollTimeMs = stepTimeMs - ((sinceLastStepNs / 1000000) as c_int);
+              handler.handle_input(input);
+            }
+          }
+        }
+        PollTimeout => {
+          match handler.handle_step() {
+            None                 => { break; }
+            Some(nextStepTimeMs) => {
+              stepTimeMs = nextStepTimeMs;
+              pollTimeMs = nextStepTimeMs;
+              sinceLastStepNs = 0;
+            }
+          }
+        }
       }
     }
   }
@@ -1330,13 +1330,13 @@ mod tetris {
     display.print_next_piece(&secondPiece);
     
     let mut game = TetrisGame{display:     display,
-			      pieceGetter: pieceGetter,
-			      scoring:     scoring,
-			      scoreKeeper: scoreKeeper,
-			      state:       Fall,
-			      piece:       firstPiece,
-			      nextPiece:   secondPiece,
-			      setBlocks:   [None, ..200]};
+                              pieceGetter: pieceGetter,
+                              scoring:     scoring,
+                              scoreKeeper: scoreKeeper,
+                              state:       Fall,
+                              piece:       firstPiece,
+                              nextPiece:   secondPiece,
+                              setBlocks:   [None, ..200]};
 
     main_loop(&mut game);
     
@@ -1477,10 +1477,10 @@ fn main() {
     1 => tetris::run_game(&graphics::StandardDisplay),
     _ => {
       match args[1] {
-	~"--help" | ~"-h"            => display_help(),
-	~"--score" | ~"--scores"     => display_scores(),
-	~"--display=double" | ~"-d2" => tetris::run_game(&graphics::DoubleDisplay),
-	_                            => display_help()
+        ~"--help" | ~"-h"            => display_help(),
+        ~"--score" | ~"--scores"     => display_scores(),
+        ~"--display=double" | ~"-d2" => tetris::run_game(&graphics::DoubleDisplay),
+        _                            => display_help()
       }
     }
   }
