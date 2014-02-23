@@ -964,6 +964,7 @@ mod tetris {
     fn init(&self);
     fn handle_step(&mut self) -> Option<c_int>;
     fn handle_input(&mut self, input: input_reader::ReadResult);
+    fn handle_quit(&self);
   }
 
   enum State {
@@ -1247,6 +1248,10 @@ mod tetris {
       }
       self.display.flush();
     }
+    
+    fn handle_quit(&self) {
+      self.scoreKeeper.store_score(&time::now(), self.scoring.get_score());
+    }
   }
 
   fn main_loop<T: GameHandler>(handler: &mut T) {
@@ -1268,7 +1273,10 @@ mod tetris {
       match poll_stdin(pollTimeMs) {
 	PollReady   => {
 	  match read_stdin() {
-	    Other => { break; }
+	    Other => {
+	      handler.handle_quit();
+	      break;
+	    }
 	    input => {
 	      sinceLastStepNs += time::precise_time_ns() - t;
 	      pollTimeMs = stepTimeMs - ((sinceLastStepNs / 1000000) as c_int);
