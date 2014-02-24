@@ -6,22 +6,24 @@ use std::io::{print, println};
 use std::os;
 
 mod terminal_control {
-  use std::libc::c_int;
+  use std::libc::{c_int, c_uint, c_uchar};
   
+  // Linux specifc termios structure definition
+  //
+  // Since we don't actually access any of the fields individually, and instead just
+  // pass around termios as a "black box", this will probably work for other platforms
+  // as long their struct termios is smaller than Linux's. For example, Mac OS omits the
+  // c_line field and only has 20 control characters.
   #[allow(non_camel_case_types)]
   struct termios {
-    c_iflag: c_int,      // input flags
-    c_oflag: c_int,      // output flags
-    c_cflag: c_int,      // control flags
-    c_lflag: c_int,      // local flags
-    c_cc:    [u8, ..32], // control characters
-    
-    // on my machine's C compiler and environment:
-    // -- sizeof(int) == 4
-    // -- sizeof(struct termios) == 60
-    // In this struct's definition so far, 16 bytes of flags + 32 control char bytes equals 48
-    // Adding in the extra 12 bytes to match C struct's size
-    padding: [u8, ..12]
+    c_iflag:  c_uint,          // input mode flags
+    c_oflag:  c_uint,          // output mode flags
+    c_cflag:  c_uint,          // control mode flags
+    c_lflag:  c_uint,          // local mode flags
+    c_line:   c_uchar,         // line discipline
+    c_cc:     [c_uchar, ..32], // control characters
+    c_ispeed: c_uint,          // input speed
+    c_ospeed: c_uint,          // output speed
   }
 
   extern {
@@ -37,8 +39,10 @@ mod terminal_control {
         c_oflag: 0,
         c_cflag: 0,
         c_lflag: 0,
+        c_line: 0,
         c_cc:    [0, ..32],
-        padding: [0, ..12]
+        c_ispeed: 0,
+        c_ospeed: 0
       };
       // first parameter is file descriptor number, 0 ==> standard input
       let err = tcgetattr(0, &mut ios);
