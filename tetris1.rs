@@ -70,8 +70,8 @@ mod terminal_control {
     ios: termios
   }
 
-  impl TerminalRestorer {
-    pub fn restore(&self) {
+  impl Drop for TerminalRestorer {
+    fn drop(&mut self) {
       set_terminal_attr(&self.ios);
     }
   }
@@ -1290,7 +1290,8 @@ mod tetris {
   }
 
   pub fn run_game(display: &Display) {
-    let restorer = terminal_control::set_terminal_raw_mode();
+    // the restorer resets the terminal out of raw mode once it's dropped
+    let _restorer = terminal_control::set_terminal_raw_mode();
     
     display.init();
     
@@ -1316,9 +1317,7 @@ mod tetris {
     main_loop(&mut game);
     
     display.close();
-    restorer.restore();
   }
-
 }
 
 fn display_help() {
@@ -1441,7 +1440,7 @@ score: 1                       level: 1
 }
 
 fn main() {
-  let args = os::args();  
+  let args = os::args();
   
   // There's always at least one argument (the program's name)
   // If the program is run with no extra argument's passed by the user, just run the game in standard display mode
