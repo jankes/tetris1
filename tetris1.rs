@@ -995,39 +995,19 @@ mod tetris {
 
   impl<'a> TetrisGame<'a> {  
     fn collides_with_set_blocks(&self, piece: &Piece) -> bool {
-      for block in piece.blocks.iter() {
-        if self.setBlocks.has_block(block.row, block.column) {
-          return true;
-        }
-      }
-      return false;
+      piece.blocks.iter().any(|block| self.setBlocks.has_block(block.row, block.column))
     }
     
     fn in_bounds_bottom_row(piece: &Piece) -> bool {
-      for block in piece.blocks.iter() {
-        if block.row > 20 {
-          return false;
-        }
-      }
-      return true;
+      piece.blocks.iter().all(|block| block.row <= 20)
     }
     
     fn in_bounds_cols(piece: &Piece) -> bool {
-      for block in piece.blocks.iter() {
-        if block.column < 1 || block.column > 10 {
-          return false;
-        }
-      }
-      return true;
+      piece.blocks.iter().all(|block| block.column >= 1 && block.column <= 10)
     }
     
     fn all_in_bounds(piece: &Piece) -> bool {
-      for block in piece.blocks.iter() {
-        if block.row < 1 || block.row > 20 || block.column < 1 || block.column > 10 {
-          return false;
-        }
-      }
-      return true;
+      piece.blocks.iter().all(|block| block.row >= 1 && block.row <= 20 && block.column >= 1 && block.column <= 10)
     }
     
     fn can_move_rows(&self, piece: &Piece, rowOffset: i8) -> bool {
