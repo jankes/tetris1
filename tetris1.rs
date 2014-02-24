@@ -243,6 +243,7 @@ mod graphics {
     }
   }
   
+  // convert from game level row and column to terminal row/col
   trait Converter {
     fn to_terminal(&self, row: i8, col: i8) -> (i8, i8);
   }
