@@ -1,4 +1,3 @@
-extern crate extra;
 extern crate serialize;
 extern crate time;
 
@@ -880,7 +879,7 @@ mod scoring {
 }
 
 mod score_keeper {
-  use extra::json;
+  use serialize::json;
   use serialize::{Encodable, Decodable};
   use scoring::Score;
   use std::io::File;
