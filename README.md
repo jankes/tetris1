@@ -13,7 +13,7 @@
 
 ### Compiling
 
-The code currently compiles with rustc version 0.10-pre (2ba0a8a 2014-02-22 11:41:48 -0800)
+The code currently compiles with rustc version 0.10-pre (c81b3fb 2014-03-01 19:44:37 -0800)
 
 Assuming you have the Rust compiler installed, just run
     
