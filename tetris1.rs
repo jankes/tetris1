@@ -1,3 +1,4 @@
+extern crate rand;
 extern crate serialize;
 extern crate time;
 
@@ -732,8 +733,8 @@ mod set_blocks {
 mod piece_getter {
   use pieces;
   use pieces::{Piece, I, J, L, O, S, T, Z};
-  use std::rand::Rng;
-  use std::rand::os::OSRng;
+  use rand::Rng;
+  use rand::os::OSRng;
 
   pub trait PieceGetter {
     fn next_piece(&mut self) -> Piece;
@@ -883,6 +884,7 @@ mod score_keeper {
   use serialize::{Encodable, Decodable};
   use scoring::Score;
   use std::io::File;
+  use std::vec_ng::Vec;
   use time;
   
   pub trait ScoreKeeper {
@@ -892,8 +894,8 @@ mod score_keeper {
     
   #[deriving(Encodable, Decodable)]
   pub struct ScoreStorage {
-    highScores:   ~[(time::Tm, Score)],
-    recentScores: ~[(time::Tm, Score)]
+    highScores:   Vec<(time::Tm, Score)>,
+    recentScores: Vec<(time::Tm, Score)>
   }
   
   pub fn get() -> &ScoreKeeper {
@@ -933,8 +935,8 @@ mod score_keeper {
     
     fn get_scores(&self) -> ScoreStorage {
       let emptyStorage = ScoreStorage {
-        highScores:   ~[],
-        recentScores: ~[]
+        highScores:   vec!(),
+        recentScores: vec!()
       };
       
       let storageFile = File::open(&Path::new("scores.json"));
@@ -1399,13 +1401,15 @@ score: 1                       level: 1
   println("High Scores:                   Recent Scores:");
   
   let scores = &score_keeper::get().get_scores();  
+  let highScores = scores.highScores.as_slice();
+  let recentScores = scores.recentScores.as_slice();
   
-  let n = max(scores.highScores.len(), scores.recentScores.len());
+  let n = max(highScores.len(), recentScores.len());
 
   for i in range(0, n) {
-    if i < scores.highScores.len() && i < scores.recentScores.len() {
-      let (ref highScoreTm, ref highScoreScore) = scores.highScores[i];
-      let (ref recentScoreTm, ref recentScoreScore) = scores.recentScores[i];
+    if i < highScores.len() && i < recentScores.len() {
+      let (ref highScoreTm, ref highScoreScore) = highScores[i];
+      let (ref recentScoreTm, ref recentScoreScore) = recentScores[i];
       println!("{}       {}", highScoreTm.ctime(), recentScoreTm.ctime());
         
       print!("level: {}", highScoreScore.level);
@@ -1420,15 +1424,15 @@ score: 1                       level: 1
       print_spaces(24 - digits(highScoreScore.score));
       println!("score: {}", recentScoreScore.score);
     
-    } else if i < scores.highScores.len() {
-      let (ref highScoreTm, ref highScoreScore) = scores.highScores[i];
+    } else if i < highScores.len() {
+      let (ref highScoreTm, ref highScoreScore) = highScores[i];
       println!("{}", highScoreTm.ctime());
       println!("level: {}", highScoreScore.level);
       println!("bonus: {}", highScoreScore.bonus);
       println!("score: {}", highScoreScore.score);
     
-    } else if i < scores.recentScores.len() {
-      let (ref recentScoreTm, ref recentScoreScore) = scores.recentScores[i];
+    } else if i < recentScores.len() {
+      let (ref recentScoreTm, ref recentScoreScore) = recentScores[i];
       println!("                               {}", recentScoreTm.ctime());
       println!("                               level: {}", recentScoreScore.level);
       println!("                               bonus: {}", recentScoreScore.bonus);
@@ -1440,7 +1444,7 @@ score: 1                       level: 1
 
 fn main() {
   let args = os::args();
-  
+
   // There's always at least one argument (the program's name)
   // If the program is run with no extra argument's passed by the user, just run the game in standard display mode
   //
@@ -1449,11 +1453,11 @@ fn main() {
   match args.len() {
     1 => tetris::run_game(&graphics::StandardDisplay),
     _ => {
-      match args[1] {
-        ~"--help" | ~"-h"            => display_help(),
-        ~"--score" | ~"--scores"     => display_scores(),
-        ~"--display=double" | ~"-d2" => tetris::run_game(&graphics::DoubleDisplay),
-        _                            => display_help()
+      match args[1].as_slice() {
+        "--help" | "-h"            => display_help(),
+        "--score" | "--scores"     => display_scores(),
+        "--display=double" | "-d2" => tetris::run_game(&graphics::DoubleDisplay),
+        _                          => display_help()
       }
     }
   }
